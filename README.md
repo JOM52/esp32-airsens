@@ -29,7 +29,7 @@ the RPI performs several functions:
 
 ## schematic diagram
 
-<img src="C:\Users\jmetr\OneDrive\technique\_projets\esp32-micropython\esp32-jmb-sensor\doc\schema de principe.png" alt="schema de principe" style="zoom: 45%;" />
+<img src="https://github.com/jom52/esp32-airsens/doc/schema de principe.png" alt="schema de principe" style="zoom: 45%;" />
 
 ## programs in ESP32
 
