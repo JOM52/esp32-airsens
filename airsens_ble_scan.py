@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-file: airsens_scan.py
+file: airsens_scan.py 
 
 version: 1.0
 date: 7.1.2022

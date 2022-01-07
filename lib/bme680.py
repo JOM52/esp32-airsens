@@ -1,6 +1,6 @@
 # Spaces, comments and some functions have been removed from the original file to save memory
 # Original source: https://github.com/adafruit/Adafruit_CircuitPython_BME680/blob/master/adafruit_bme680.py
-import time
+import time 
 import math
 from micropython import const
 from ubinascii import hexlify as hex

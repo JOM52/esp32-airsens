@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# version: 1.1
+# version: 1.1 
 
 import ubluetooth
 import random
@@ -21,7 +21,7 @@ from lib.ble_advertising import decode_services, decode_name
 
 from micropython import const
 
-BME_280_680 = 680
+BME_280_680 = 280
 if BME_280_680 == 280:
     import lib.bme280 as bmex80
 elif BME_280_680 == 680:

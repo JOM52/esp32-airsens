@@ -1,8 +1,7 @@
-from machine import I2C
+from machine import I2C 
 import time
 import math
 
-# blabla
 # BME280 default address.
 BME280_I2CADDR = 0x76
 
