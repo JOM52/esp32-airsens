@@ -29,7 +29,7 @@ the RPI performs several functions:
 
 ## schematic diagram
 
-<img src="https://github.com/jom52/esp32-airsens/doc/schema de principe.png" alt="schema de principe" style="zoom: 45%;" />
+<img src="https://github.com/JOM52/esp32-airsens/tree/main/doc/schema de principe.png" alt="schema de principe" style="zoom: 45%;" />
 
 ## programs in ESP32
 
