@@ -9,16 +9,27 @@ import micropython
 import machine
 import ubinascii
 import utime
+import sys
 
 # import lib.wifi_esp32 as wifi_esp32
 # import lib.rtc_esp32 as rtc_esp32
 import lib.adc1_cal as adc1_cal
 # import lib.bme280 as bme280
-import lib.bme680 as bme680
+# import lib.bme680 as bme680
 from lib.blink import blink_internal_blue_led
 from lib.ble_advertising import decode_services, decode_name
 
 from micropython import const
+
+BME_280_680 = 680
+if BME_280_680 == 280:
+    import lib.bme280 as bmex80
+elif BME_280_680 == 680:
+    import lib.bme680 as bmex80
+else:
+    print('ERROR\nNo sensor defined. Correct that and restart the program')
+    sys.exit()
+
 
 T_DEEPSLEEP_MS = 10000
 T_BEFORE_DEEPSLEEP_MS = 100
@@ -286,10 +297,12 @@ def main():
 #     try:
         print('initializing bluetooth')
         print('----------------------------------------------------------------------------')
-        # instanciation of bme280, bme680 - Pin assignment
+        # instanciation of bme280, bmex80 - Pin assignment
         i2c = machine.SoftI2C(scl=machine.Pin(BM_SCL_pin), sda=machine.Pin(BM_SDA_PIN), freq=10000)
-#         bme28 = bme280.BME280(i2c=i2c)
-        bme68 = bme680.BME680_I2C(i2c=i2c)
+        if BME_280_680 == 280:
+            bmeX = bmex80.BME280(i2c=i2c)
+        elif BME_280_680 == 680:
+            bmeX = bmex80.BME680_I2C(i2c=i2c)
         # instatiation of bluetooth.BLE
         ble = ubluetooth.BLE()
         sensor = BleJmbSensor(ble)
@@ -316,7 +329,7 @@ def main():
             # mesure time for a single pass
             t_start_total = utime.ticks_ms()
             # blink the blue led
-            blink_internal_blue_led(100, 100, 1, 2)
+            blink_internal_blue_led(100, 100, 2, 5)
             # load the pass counter value from file
             try:
                 with open ('index.txt', 'r') as f:
@@ -371,28 +384,27 @@ def main():
         #             datetime_formated = my_rtc.format_datetime(now)
         #             print("now date and time :", datetime_formated)
 
-        #         temp28 = bme28.temperature
-        #         hum28 = bme28.humidity
-        #         pres28 = bme28.pressure
-            
-            temp68 = int(bme68.temperature*100)/100 #bme68.temperature
-            hum68 = int(bme68.humidity) #bme68.humidity
-            pres68 = int(bme68.pressure) #bme68.pressure
-            gas68 = int(bme68.gas / 1000)
-            gaspc = int(100*gas68/75)
-            alt68 = int(bme68.altitude)
+            print(bmeX.temperature)
+            print(bmeX.humidity)
+            print(bmeX.pressure)
 
-            print('temperature -->', temp68, '°C') #, 'temp 280 -->', temp28, '°C')
-            print('humidite ----->', hum68, '%') #, 'hum 280 -->', hum28, '%')
-            print('pression ----->', pres68, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
-            print('gaz ---------->', gas68, 'Kohms', '=^=', gaspc, '%')
-            print('altitude ----->', alt68, 'm')
+            temp = bmeX.temperature #bme68.temperature
+            hum = bmeX.humidity #bme68.humidity
+            pres = bmeX.pressure #bme68.pressure
+#             gas68 = int(bme68.gas / 1000)
+#             gaspc = int(100*gas68/75)
+            alt = int(bmeX.altitude)
+
+            print('temperature -->', temp, '°C') #, 'temp 280 -->', temp28, '°C')
+            print('humidite ----->', hum, '%') #, 'hum 280 -->', hum28, '%')
+            print('pression ----->', pres, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
+#             print('gaz ---------->', gas68, 'Kohms', '=^=', gaspc, '%')
+            print('altitude ----->', alt, 'm')
             print('bat ---------->', '{:.2f}'.format(ubatt.voltage / 1000), 'V')
 
             
-            msg = 'jmb ' + str(temp68) + ' ' + str(hum68) + ' ' + str(pres68) + ' ' + str(i)
+            msg = 'jmb ' + str(temp) + ' ' + str(hum) + ' ' + str(pres) + ' ' + str(i)
             sensor.write(msg)
-#             print('msg sended to -->', sensor._name.replace('\n', '')) # , ubinascii.hexlify(bytes(sensor._addr)).decode('utf-8'))
                 
             elapsed = utime.ticks_ms() - t_start_total
             print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )

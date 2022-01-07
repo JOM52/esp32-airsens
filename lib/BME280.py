@@ -1,5 +1,6 @@
 from machine import I2C
 import time
+import math
 
 # BME280 default address.
 BME280_I2CADDR = 0x76
@@ -153,6 +154,7 @@ class BME280:
     self._load_calibration()
     self._device.write8(BME280_REGISTER_CONTROL, 0x3F)
     self.t_fine = 0
+    self.sea_level_pressure = 1013.25
 
   def _load_calibration(self):
 
@@ -286,6 +288,11 @@ class BME280:
     hd = h * 100 // 1024 - hi * 100
 #     return "{}.{:0d}".format(hi, hd)
     return '{:.0f}'.format(h/1024)
+
+  @property
+  def altitude(self):
+    pressure = float(self.pressure)
+    return 44330 * (1.0 - math.pow(pressure / self.sea_level_pressure, 0.1903))
 
 if __name__ == '__main__':
     
