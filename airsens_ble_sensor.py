@@ -55,6 +55,7 @@ BM_GND_PIN.off()
 # Constants
 T_DEEPSLEEP_MS = 10000
 T_BEFORE_DEEPSLEEP_MS = 100
+T_BETWEEN_2_DATA = 50
 T_WAIT_FOR_IRQ_TERMINATED_MS = 250
 
 # analog voltage measurement
@@ -298,21 +299,38 @@ def main():
                    or not sensor._gattc_characteristic_done):
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
-            temp = int(bmeX.temperature*10)/10 #bme68.temperature
-            hum = int(bmeX.humidity) #bme68.humidity
-            pres = int(bmeX.pressure) #bme68.pressure
-            gas = int(bmeX.gas / 1000)
-            alt = int(bmeX.altitude)
-
-            print('temperature -->', temp, '°C') #, 'temp 280 -->', temp28, '°C')
-            print('humidite ----->', hum, '%') #, 'hum 280 -->', hum28, '%')
-            print('pression ----->', pres, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
-            print('gaz ---------->', gas, 'Kohms')
-            print('altitude ----->', alt, 'm')
-            print('bat ---------->', '{:.2f}'.format(ubatt.voltage / 1000), 'V')
+            msg_template = 'jmb'
             
-            msg = 'jmb ' + str(temp) + ' ' + str(hum) + ' ' + str(pres) + ' ' + str(i)
-            sensor.write(msg)
+            temp = [msg_template, 'temp', str(bmeX.temperature)]
+            hum = [msg_template, 'hum', str(bmeX.humidity)]
+            pres = [msg_template, 'pres', str(bmeX.pressure)]
+            gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
+            alt = [msg_template, 'alt', str(bmeX.altitude)]
+            bat = [msg_template, 'bat', str(ubatt.voltage / 1000)]
+            data_all = [temp, hum, pres, gas, alt, bat]
+            
+            for m in data_all:
+                msg = " ".join(m)
+                sensor.write(msg)
+                print(len(msg), msg)
+                utime.sleep_ms(T_BETWEEN_2_DATA)
+            sensor.write('jmb\n')
+
+#             temp = int(temp*10)/10 #bme68.temperature
+#             hum = int(hum) #bme68.humidity
+#             pres = int(pres) #bme68.pressure
+#             gas = int(gas)
+#             alt = int(alt)
+
+#             print('temperature -->', temp, '°C') #, 'temp 280 -->', temp28, '°C')
+#             print('humidite ----->', hum, '%') #, 'hum 280 -->', hum28, '%')
+#             print('pression ----->', pres, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
+#             print('gaz ---------->', gas, 'Kohms')
+#             print('altitude ----->', alt, 'm')
+#             print('bat ---------->', '{:.2f}'.format(ubatt.voltage / 1000), 'V')
+            
+#             msg = 'jmb ' + str(temp) + ' ' + str(hum) + ' ' + str(pres) + ' ' + str(i)
+#             sensor.write(msg)
                 
             elapsed = utime.ticks_ms() - t_start_total
             print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
