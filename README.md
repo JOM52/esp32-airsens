@@ -13,7 +13,7 @@ Data visualization will be done later with a standard application (jeedom, domot
 
 ### sensors:
 
-the sensors are made with an ESP32 microcontroller and can be powered by battery or by USB. They transmit the data to a central also realized with an ESP32 by a bluetooth low energy communication (BLE). The sensors connect to the server, transmit the data and then go into deepsleep mode (very low energy consumption) for a period chosen by the user (recommended between 5 and 10 minutes)
+The sensors are made with an ESP32 microcontroller and can be powered by battery or by USB. They transmit the data to a central also realized with an ESP32 by a bluetooth low energy communication (BLE). The sensors connect to the server, transmit the data and then go into deepsleep mode (very low energy consumption) for a period chosen by the user (recommended between 5 and 10 minutes)
 
 ### central
 

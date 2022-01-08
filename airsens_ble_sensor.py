@@ -41,6 +41,7 @@ else:
     print('push <ENTER> to exit')
     input()
     sys.exit()
+    
 # sensor pins and init
 BM_VCC_PIN = 17
 BM_GND_PIN = 16
@@ -54,7 +55,7 @@ BM_GND_PIN.off()
 # Constants
 T_DEEPSLEEP_MS = 10000
 T_BEFORE_DEEPSLEEP_MS = 100
-T_WAIT_FOR_IRQ_TERMINATED_MS = 100
+T_WAIT_FOR_IRQ_TERMINATED_MS = 250
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -69,8 +70,8 @@ ubatt.width(machine.ADC.WIDTH_12BIT)
 ubatt.atten(machine.ADC.ATTN_6DB)
 
 # IRQ constants
-_IRQ_SCAN_RESULT = const(5)
-_IRQ_SCAN_DONE = const(6)
+# _IRQ_SCAN_RESULT = const(5)
+# _IRQ_SCAN_DONE = const(6)
 _IRQ_PERIPHERAL_CONNECT = const(7)
 _IRQ_PERIPHERAL_DISCONNECT = const(8)
 _IRQ_GATTC_SERVICE_RESULT = const(9)
@@ -78,14 +79,14 @@ _IRQ_GATTC_SERVICE_DONE = const(10)
 _IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
 _IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
 
-_ADV_IND = const(0x00)
-_ADV_DIRECT_IND = const(0x01)
-_ADV_SCAN_IND = const(0x02)
-_ADV_NONCONN_IND = const(0x03)
-
-_UART_SERVICE_UUID = ubluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
-_UART_RX_CHAR_UUID = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
-_UART_TX_CHAR_UUID = ubluetooth.UUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+# _ADV_IND = const(0x00)
+# _ADV_DIRECT_IND = const(0x01)
+# _ADV_SCAN_IND = const(0x02)
+# _ADV_NONCONN_IND = const(0x03)
+# 
+# _UART_SERVICE_UUID = ubluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+# _UART_RX_CHAR_UUID = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
+# _UART_TX_CHAR_UUID = ubluetooth.UUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
 
 #==== under test begin ==================================================================
 NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
@@ -95,9 +96,8 @@ TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
 _UART_SERVICE_UUID = ubluetooth.UUID(NUS_UUID)
 _UART_RX_CHAR_UUID = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
 _UART_TX_CHAR_UUID = (ubluetooth.UUID(TX_UUID), ubluetooth.FLAG_READ | ubluetooth.FLAG_NOTIFY)
-# BLE_NUS = ubluetooth.UUID(NUS_UUID)
-# BLE_RX = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
-# BLE_TX = (ubluetooth.UUID(TX_UUID), ubluetooth.FLAG_NOTIFY)
+    
+BLE_UART_SERVICES = ((_UART_SERVICE_UUID, (_UART_TX_CHAR_UUID, _UART_RX_CHAR_UUID,)),)
 #==== under test end ==================================================================
 
 class BleJmbSensor:
@@ -119,15 +119,6 @@ class BleJmbSensor:
         self._addr_type = None
         self._addr = None
 
-        # Callbacks for completion of various operations.
-        # These reset back to None after being invoked.
-#         self._scan_callback = None
-#         self._conn_callback = None
-#         self._read_callback = None
-
-        # Persistent callback for when new data is notified from the device.
-#         self._notify_callback = None
-
         # Connected device.
         self._conn_handle = None
         self._start_handle = None
@@ -148,16 +139,13 @@ class BleJmbSensor:
 
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
-#             print('---> 7_IRQ_PERIPHERAL_CONNECT', conn_handle, addr_type, self.bytes_to_asc(bytes(addr)))
             # Connect successful.
             if addr_type == self._addr_type and addr == self._addr:
                 self._conn_handle = conn_handle
                 self._ble.gattc_discover_services(self._conn_handle)
                 self._irq_peripheral_connect = True
-#                 print('_IRQ_PERIPHERAL_CONNECT done')
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
-#             print('---> 8_IRQ_PERIPHERAL_DISCONNECT')
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
             self._irq_peripheral_disconnect = True
@@ -166,14 +154,12 @@ class BleJmbSensor:
                 self._reset()
 
         elif event == _IRQ_GATTC_SERVICE_RESULT: #9
-#             print('---> 9_IRQ_GATTC_SERVICE_RESULT')
             # Connected device returned a service.
             conn_handle, start_handle, end_handle, uuid = data
             if conn_handle == self._conn_handle and uuid == _UART_SERVICE_UUID:
                 self._start_handle, self._end_handle = start_handle, end_handle
 
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
-#             print('---> 10_IRQ_GATTC_SERVICE_DONE')
             # Service query complete.
             if self._start_handle and self._end_handle:
                 self._ble.gattc_discover_characteristics(self._conn_handle, self._start_handle, self._end_handle)
@@ -182,22 +168,16 @@ class BleJmbSensor:
                 print("Failed to find uart service.")
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT: #11
-#             print('---> 11_IRQ_GATTC_CHARACTERISTIC_RESULT')
             # Connected device returned a characteristic.
             conn_handle, def_handle, value_handle, properties, uuid = data
-#             print(uuid, _UART_RX_CHAR_UUID, value_handle)
             if conn_handle == self._conn_handle and uuid == _UART_RX_CHAR_UUID[0]:
                 self._rx_handle = value_handle
             if conn_handle == self._conn_handle and uuid == _UART_TX_CHAR_UUID[0]:
                 self._tx_handle = value_handle
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_DONE: #12
-#             print('---> 12_IRQ_GATTC_CHARACTERISTIC_DONE')
             # Characteristic query complete.
             if self._tx_handle is not None and self._rx_handle is not None:
-                # We've finished connecting and discovering device, fire the connect callback.
-#                 if self._conn_callback:
-#                     self._conn_callback()
                 self._gattc_characteristic_done = True
             else:
                 print("Failed to find uart rx characteristic.")
@@ -231,19 +211,10 @@ class BleJmbSensor:
     def is_connected(self):
         return self._irq_peripheral_connect
 
-    # Find a device advertising the environmental sensor service.
-#     def scan(self, callback=None):
-#         self._addr_type = None
-#         self._addr = None
-#         self._scan_callback = callback
-#         self._ble.gap_scan(2000, 30000, 30000)
-
     # Connect to the specified device (otherwise use cached address from a scan).
     def connect(self, addr_type=None, addr=None): #, callback=None):
-#         print('---> connect', addr_type, addr)
         self._addr_type = addr_type or self._addr_type
         self._addr = addr or self._addr
-#         self._conn_callback = callback
         if self._addr_type is None or self._addr is None:
             return False
         self._ble.gap_connect(self._addr_type, self._addr)
@@ -259,10 +230,6 @@ class BleJmbSensor:
         if not self.is_connected():
             return
         self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
-
-    # Set handler for when data is received over the UART.
-#     def on_notify(self, callback):
-#         self._notify_callback = callback
 
 def restart_ESP32(i, err_msg):
     msg = str(i) + ' - restart_ESP32: ' + err_msg
@@ -304,18 +271,7 @@ def main():
         sensor.config_read_conn_info()
         addr_type = sensor._addr_type
         addr = sensor._addr
-            
-#         sensor.scan()
-#         while not sensor._scan_done:
-#             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-#         if not sensor._uart_central_found:
-#             print('No uart central found. Active it and then restart this program')
-#             import sys
-#             sys.exit()
-#             print('server found:',str((utime.ticks_ms()-t_start)/1000) + 's --> ',
-#                   'sensor._addr_type:', sensor._addr_type,
-#                   'sensor._name:', sensor._name,
-#                   'sensor:_addr:', ubinascii.hexlify(bytes(sensor._addr)).decode('utf-8'))
+
         while True:
             # mesure time for a single pass
             t_start_total = utime.ticks_ms()
@@ -330,69 +286,30 @@ def main():
             with open ('index.txt', 'w') as f:
                 f.write(str(i))
             
-            
             #connect to the central
-#             v_nc = 1
             sensor._addr_type, sensor._addr = addr_type, addr
             connect_status = sensor.connect(sensor._addr_type, sensor._addr)
-#             print('connect demand done')
             while not connect_status:
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 connect_status = sensor.connect(sensor._addr_type, sensor._addr)
-#                 print(v_nc, "::::::::::")
-#                 v_nc += 1
-#             print('connect status ok')
-            
             
             while (not sensor.is_connected()
                    or not sensor._gattc_service_done
                    or not sensor._gattc_characteristic_done):
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-#             print('connect ok')
-                
-    #         while not sensor.is_connected():
-    #             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-    #         print("Connected")
-    # 
-    #         while not sensor._gattc_service_done:
-    #             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-    #      
-    #         while not sensor._gattc_characteristic_done:
-    #             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
-
-        #         if WIFI_CONNECT:
-        #             my_wifi = wifi_esp32.WifiEsp32('jmb-guest', 'pravidondaz')  # initialize the class
-        #             my_wifi.connect_wifi()  # connect to the wifi network
-        #             
-        #             if RTC_SYNC:
-        #                 my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
-        #                 my_rtc.rtc_init()  # initialize the rtc with local date and time
-                
-        #         # extract the date and time values in str format and print it
-        #         if WIFI_CONNECT and RTC_SYNC:
-        #             now = my_rtc.rtc_now()  # get date and time
-        #             datetime_formated = my_rtc.format_datetime(now)
-        #             print("now date and time :", datetime_formated)
-
-#             print(bmeX.temperature)
-#             print(bmeX.humidity)
-#             print(bmeX.pressure)
-
-            temp = bmeX.temperature #bme68.temperature
-            hum = bmeX.humidity #bme68.humidity
-            pres = bmeX.pressure #bme68.pressure
-#             gas68 = int(bme68.gas / 1000)
-#             gaspc = int(100*gas68/75)
+            temp = int(bmeX.temperature*10)/10 #bme68.temperature
+            hum = int(bmeX.humidity) #bme68.humidity
+            pres = int(bmeX.pressure) #bme68.pressure
+            gas = int(bmeX.gas / 1000)
             alt = int(bmeX.altitude)
 
             print('temperature -->', temp, '°C') #, 'temp 280 -->', temp28, '°C')
             print('humidite ----->', hum, '%') #, 'hum 280 -->', hum28, '%')
             print('pression ----->', pres, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
-#             print('gaz ---------->', gas68, 'Kohms', '=^=', gaspc, '%')
+            print('gaz ---------->', gas, 'Kohms')
             print('altitude ----->', alt, 'm')
             print('bat ---------->', '{:.2f}'.format(ubatt.voltage / 1000), 'V')
-
             
             msg = 'jmb ' + str(temp) + ' ' + str(hum) + ' ' + str(pres) + ' ' + str(i)
             sensor.write(msg)
@@ -400,13 +317,12 @@ def main():
             elapsed = utime.ticks_ms() - t_start_total
             print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
             print('going to sleep for ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
-            
 
             sensor.disconnect()
             while not sensor._irq_peripheral_disconnect:
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 
-#             print(sensor._irq_list)
+            print(sensor._irq_list)
             sensor._irq_list = []
             
             print('============================================================================')
