@@ -65,9 +65,12 @@ class BLE():
             message = buffer.decode('UTF-8').strip()
             if message[:3] == 'jmb':
                 data = message.split(' ')
-                self.pass_counter += 1
-                msg = str(self.pass_counter) + ' --> temp:' + data[1] + '°C  hum:' + data[2] + '%  pres:' + data[3] + 'hPa'
-                print(msg)
+                if len(data) > 1:
+                    print(data[1], data[2])
+                else:
+                    self.pass_counter += 1
+                    print('passe:', self.pass_counter)
+                    print('----------')
                 
             if message == 'blue_led':
                 blue_led.value(not blue_led.value())
@@ -96,7 +99,7 @@ class BLE():
 def main():
     print('program started')
     blue_led = Pin(2, Pin.OUT)
-    ble = BLE("jmb_airsens_01")
+    ble = BLE("jmb_airsens_ttgo")
 
 if __name__ == '__main__':
     main()
