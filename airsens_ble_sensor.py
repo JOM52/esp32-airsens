@@ -29,18 +29,18 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Choose the type of sensor connected
-BME_280_680 = 280
+BME_280_680 = 0
 if BME_280_680 == 280:
     import lib.bme280 as bmex80
 elif BME_280_680 == 680:
     import lib.bme680 as bmex80
-else:
-    print('ERROR\nNo know sensor defined. Correct that and restart the program')
-    print('Possibilities are 280 or 680')
-    print()
-    print('push <ENTER> to exit')
-    input()
-    sys.exit()
+# else:
+#     print('ERROR\nNo know sensor defined. Correct that and restart the program')
+#     print('Possibilities are 280 or 680')
+#     print()
+#     print('push <ENTER> to exit')
+#     input()
+#     sys.exit()
     
 # sensor pins and init
 BM_VCC_PIN = 15
@@ -116,7 +116,7 @@ class BleJmbSensor:
 
     def _reset(self):
         # Cached name and address from a successful scan.
-        print('entering reset')
+#         print('entering reset')
         self._name = None
         self._addr_type = None
         self._addr = None
@@ -150,7 +150,7 @@ class BleJmbSensor:
                 self._conn_handle = conn_handle
                 self._ble.gattc_discover_services(self._conn_handle)
                 self._irq_peripheral_connect = True
-                print('\n_irq_peripheral_connect')
+#                 print('\n_irq_peripheral_connect')
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
@@ -294,10 +294,12 @@ def main():
                 bmeX = bmex80.BME280(i2c=i2c)
             elif BME_280_680 == 680:
                 bmeX = bmex80.BME680_I2C(i2c=i2c)
+            elif BME_280_680 == 680:
+                bmeX = None
         except:
             if BME_280_680 == 280:
                 sx = 'bme280'
-            else:
+            elif BME_280_680 == 280:
                 sx ='bme680'
             print('Ce n\'est pas un ' + sx + ' qui est branché?')
             print('Corrigez et relancez le programme!')
@@ -351,16 +353,24 @@ def main():
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
             msg_template = 'jmb'
-            temp = [msg_template, 'temp', str(bmeX.temperature)]
-            hum = [msg_template, 'hum', str(bmeX.humidity)]
-            pres = [msg_template, 'pres', str(bmeX.pressure)]
-            alt = [msg_template, 'alt', str(bmeX.altitude)]
-            bat = [msg_template, 'bat', str(ubatt.voltage / 1000)]
-            if BME_280_680 == 680:
-                gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
-                data_all = [temp, hum, pres, gas, alt, bat]
-            else:
+            if BME_280_680 == 0:
+                temp = [msg_template, 'temp', str(20)]
+                hum = [msg_template, 'hum', str(50)]
+                pres = [msg_template, 'pres', str(950)]
+                alt = [msg_template, 'alt', str(750)]
+                bat = [msg_template, 'bat', str(4)]
                 data_all = [temp, hum, pres, alt, bat]
+            else:            
+                temp = [msg_template, 'temp', str(bmeX.temperature)]
+                hum = [msg_template, 'hum', str(bmeX.humidity)]
+                pres = [msg_template, 'pres', str(bmeX.pressure)]
+                alt = [msg_template, 'alt', str(bmeX.altitude)]
+                bat = [msg_template, 'bat', str(ubatt.voltage / 1000)]
+                if BME_280_680 == 680:
+                    gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
+                    data_all = [temp, hum, pres, gas, alt, bat]
+                else:
+                    data_all = [temp, hum, pres, alt, bat]
             print()
             print()
             for m in data_all:
