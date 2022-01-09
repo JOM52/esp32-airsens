@@ -31,8 +31,8 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
-MICROCONTROLER = "TTGO" # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI
+CONNECTED_SENSOR_TYPE = 'BME680' # 'NO_SENSOR' / 'BME280' / 'BME680'
+MICROCONTROLER = "WEMOS" # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -56,7 +56,7 @@ if MICROCONTROLER == 'TTGO':
     BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
     BM_VCC_PIN.on()
 elif MICROCONTROLER == 'WEMOS':
-    BM_VCC_PIN = 15
+    BM_VCC_PIN = 17
     BM_GND_PIN = 16
     BM_SDA_PIN = 21
     BM_SCL_pin = 22

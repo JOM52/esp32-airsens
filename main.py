@@ -1,0 +1,2 @@
+import airsens_ble_sensor
+airsens_ble_sensor.main()
