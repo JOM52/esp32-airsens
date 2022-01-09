@@ -155,10 +155,10 @@ class BleJmbSensor:
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
-            print()
-            print('conn_handle', conn_handle,
-                  '- self._conn_handle', self._conn_handle,
-                  '- conn_handle == self._conn_handle --->', conn_handle == self._conn_handle)
+#             print()
+#             print('conn_handle', conn_handle,
+#                   '- self._conn_handle', self._conn_handle,
+#                   '- conn_handle == self._conn_handle --->', conn_handle == self._conn_handle)
             if conn_handle == self._conn_handle:
                 # If it was initiated by us, it'll already be reset.
                 machine.reset()
@@ -285,6 +285,7 @@ def restart_ESP32(i, err_msg):
 
 def main():
 #     try:
+                
         print('initializing bluetooth')
         print('----------------------')
         # instanciation of bme280, bmex80 - Pin assignment
@@ -312,6 +313,13 @@ def main():
         # initialize the pass counter to 0
 #         with open ('index.txt', 'w') as f:
 #             f.write(str(0))
+        try:
+            with open ('index.txt', 'r') as f:
+                pp = f.readline()
+        except:
+            pp = '1'
+        with open ('error.txt', 'a') as f:
+            f.write('reboot at pass: ' + pp + '\n')
 
         # read and initialise variable for sensor from config from file
         sensor.config_read_conn_info()
@@ -331,8 +339,6 @@ def main():
                 i = 1
             with open ('index.txt', 'w') as f:
                 f.write(str(i))
-            with open ('error.txt', 'a') as f:
-                f.write('reboot at pass: ' + str(i))
             
             #connect to the central
             sensor._addr_type, sensor._addr = addr_type, addr
@@ -407,7 +413,8 @@ def main():
                 
 #             print(sensor._irq_list)
             sensor._irq_list = []
-            print('\n======================')
+            print()
+            print('======================')
             utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)
         
 #         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
