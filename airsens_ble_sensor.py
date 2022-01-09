@@ -295,7 +295,7 @@ def main():
                 bmeX = bmex80.BME280(i2c=i2c)
             elif BME_280_680 == 680:
                 bmeX = bmex80.BME680_I2C(i2c=i2c)
-            elif BME_280_680 == 680:
+            elif BME_280_680 == 0:
                 bmeX = None
         except:
             if BME_280_680 == 280:
@@ -307,30 +307,38 @@ def main():
             print()
             print('push enter to exit')
             sys.exit()
+            
         # instatiation of bluetooth.BLE
         ble = ubluetooth.BLE()
         sensor = BleJmbSensor(ble)
-        # initialize the pass counter to 0
-#         with open ('index.txt', 'w') as f:
-#             f.write(str(0))
+        # initialize the pass counter to 1
         try:
             with open ('index.txt', 'r') as f:
-                pp = f.readline()
+                pp = f.readline().strip()
+                if len(pp) == 0:
+                    pp = 1
         except:
             pp = '1'
-        with open ('error.txt', 'a') as f:
-            f.write('reboot at pass: ' + pp + '\n')
+        # error logging
+        try:
+            with open ('error.txt', 'a') as f:
+                f.write('reboot at pass: ' + pp + '\n')
+        except:
+            with open ('error.txt', 'w') as f:
+                f.write('reboot at pass: 1\n')
+            
 
-        # read and initialise variable for sensor from config from file
+        # read and initialise variable from config file
         sensor.config_read_conn_info()
         addr_type = sensor._addr_type
         addr = sensor._addr
 
+        # main loop
         while True:
             # mesure time for a single pass
             t_start_total = utime.ticks_ms()
             # blink the blue led
-            blink_internal_blue_led(100, 100, 2, 5)
+            blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=2, n_repeat=1)
             # load the pass counter value from file
             try:
                 with open ('index.txt', 'r') as f:
@@ -345,19 +353,18 @@ def main():
             print('connecting')
             connect_status = sensor.connect(sensor._addr_type, sensor._addr)
             while not connect_status and not sensor._gattc_service_timeout:
-                print('waiting for connection --> timeaout status =', sensor._gattc_service_timeout)
+                print('----> waiting for connection --> timeaout status =', sensor._gattc_service_timeout)
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 connect_status = sensor.connect(sensor._addr_type, sensor._addr)
             
-            if sensor._gattc_service_timeout:
-                print('sorti de la mauvaise connection')
-
-            
+#             if sensor._gattc_service_timeout:
+#                 print('----> sorti de la mauvaise connection')
+            # be sure that all task are terminated before to continue
             while (not sensor.is_connected()
                    or not sensor._gattc_service_done
                    or not sensor._gattc_characteristic_done):
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-
+            # prepare the data's
             msg_template = 'jmb'
             if BME_280_680 == 0:
                 temp = [msg_template, 'temp', str(20)]
@@ -379,42 +386,28 @@ def main():
                     data_all = [temp, hum, pres, alt, bat]
             print()
             print()
+            # transmit the data to the central
             for m in data_all:
                 msg = " ".join(m)
                 sensor.write(msg)
                 print(len(msg), msg)
                 utime.sleep_ms(T_BETWEEN_2_DATA)
             sensor.write('jmb\n')
-
-#             temp = int(temp*10)/10 #bme68.temperature
-#             hum = int(hum) #bme68.humidity
-#             pres = int(pres) #bme68.pressure
-#             gas = int(gas)
-#             alt = int(alt)
-
-#             print('temperature -->', temp, '°C') #, 'temp 280 -->', temp28, '°C')
-#             print('humidite ----->', hum, '%') #, 'hum 280 -->', hum28, '%')
-#             print('pression ----->', pres, 'hPa') #, 'pres 280 -->', pres28, 'hPa')
-#             print('gaz ---------->', gas, 'Kohms')
-#             print('altitude ----->', alt, 'm')
-#             print('bat ---------->', '{:.2f}'.format(ubatt.voltage / 1000), 'V')
-            
-#             msg = 'jmb ' + str(temp) + ' ' + str(hum) + ' ' + str(pres) + ' ' + str(i)
-#             sensor.write(msg)
-                
+            # disconnect from the central
+            sensor.disconnect()
+            while not sensor._irq_peripheral_disconnect:
+                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+            # last tasks
             elapsed = utime.ticks_ms() - t_start_total
             print()
             print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
             print('going to sleep for ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
-
-            sensor.disconnect()
-            while not sensor._irq_peripheral_disconnect:
-                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 
 #             print(sensor._irq_list)
             sensor._irq_list = []
             print()
             print('======================')
+            blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
             utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)
         
 #         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
