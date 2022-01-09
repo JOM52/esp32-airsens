@@ -29,7 +29,7 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Choose the type of sensor connected
-BME_280_680 = 680
+BME_280_680 = 280
 if BME_280_680 == 280:
     import lib.bme280 as bmex80
 elif BME_280_680 == 680:
@@ -43,14 +43,14 @@ else:
     sys.exit()
     
 # sensor pins and init
-BM_VCC_PIN = 17
-BM_GND_PIN = 16
+BM_VCC_PIN = 15
+# BM_GND_PIN = 16
 BM_SDA_PIN = 21
 BM_SCL_pin = 22
 BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
-BM_GND_PIN = machine.Pin(BM_GND_PIN, machine.Pin.OUT)
+# BM_GND_PIN = machine.Pin(BM_GND_PIN, machine.Pin.OUT)
 BM_VCC_PIN.on()
-BM_GND_PIN.off()
+# BM_GND_PIN.off()
 
 # Constants
 T_DEEPSLEEP_MS = 10000
@@ -137,6 +137,7 @@ class BleJmbSensor:
     def _irq(self, event, data):
         
         self._irq_list.append(event)
+        print(event)
 
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
@@ -213,12 +214,16 @@ class BleJmbSensor:
         return self._irq_peripheral_connect
 
     # Connect to the specified device (otherwise use cached address from a scan).
-    def connect(self, addr_type=None, addr=None): #, callback=None):
-        self._addr_type = addr_type or self._addr_type
-        self._addr = addr or self._addr
+    def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
+        self._addr_type = addr_type
+        self._addr = addr
         if self._addr_type is None or self._addr is None:
+            self._ble.gap_connect(None)
+            print('-------> self._ble.gap_connect(None)')
             return False
+        t_start = utime.ticks_ms()
         self._ble.gap_connect(self._addr_type, self._addr)
+        print('connect duration:' + str(utime.ticks_ms() - t_start) + 'ms')
         return True
 
     # Disconnect from current device.
@@ -244,7 +249,7 @@ def restart_ESP32(i, err_msg):
 def main():
 #     try:
         print('initializing bluetooth')
-        print('----------------------------------------------------------------------------')
+        print('----------------------')
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = machine.SoftI2C(scl=machine.Pin(BM_SCL_pin), sda=machine.Pin(BM_SDA_PIN), freq=10000)
         try:
@@ -300,14 +305,16 @@ def main():
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
             msg_template = 'jmb'
-            
             temp = [msg_template, 'temp', str(bmeX.temperature)]
             hum = [msg_template, 'hum', str(bmeX.humidity)]
             pres = [msg_template, 'pres', str(bmeX.pressure)]
-            gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
             alt = [msg_template, 'alt', str(bmeX.altitude)]
             bat = [msg_template, 'bat', str(ubatt.voltage / 1000)]
-            data_all = [temp, hum, pres, gas, alt, bat]
+            if BME_280_680 == 680:
+                gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
+                data_all = [temp, hum, pres, gas, alt, bat]
+            else:
+                data_all = [temp, hum, pres, alt, bat]
             
             for m in data_all:
                 msg = " ".join(m)
@@ -340,10 +347,9 @@ def main():
             while not sensor._irq_peripheral_disconnect:
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 
-            print(sensor._irq_list)
+#             print(sensor._irq_list)
             sensor._irq_list = []
-            
-            print('============================================================================')
+            print('======================')
             utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)
         
 #         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
