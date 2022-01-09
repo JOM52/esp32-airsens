@@ -116,6 +116,7 @@ class BleJmbSensor:
 
     def _reset(self):
         # Cached name and address from a successful scan.
+        print('entering reset')
         self._name = None
         self._addr_type = None
         self._addr = None
@@ -129,7 +130,10 @@ class BleJmbSensor:
         
         self._connect_status = False
         self._uart_central_found = False
+        self._gattc_service_result = False
         self._gattc_service_done = False
+        self._gattc_service_timeout = False
+        self._gattc_characteristic_result = False
         self._gattc_characteristic_done = False
         self._irq_peripheral_connect = False
         self._irq_peripheral_disconnect = False
@@ -137,7 +141,7 @@ class BleJmbSensor:
     def _irq(self, event, data):
         
         self._irq_list.append(event)
-        print(event)
+        print('->', event, end=' ')
 
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
@@ -146,23 +150,47 @@ class BleJmbSensor:
                 self._conn_handle = conn_handle
                 self._ble.gattc_discover_services(self._conn_handle)
                 self._irq_peripheral_connect = True
+                print('\n_irq_peripheral_connect')
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
-            self._irq_peripheral_disconnect = True
+            print()
+            print('conn_handle', conn_handle,
+                  '- self._conn_handle', self._conn_handle,
+                  '- conn_handle == self._conn_handle --->', conn_handle == self._conn_handle)
             if conn_handle == self._conn_handle:
                 # If it was initiated by us, it'll already be reset.
-                self._reset()
+                machine.reset()
+            self._irq_peripheral_disconnect = True
 
         elif event == _IRQ_GATTC_SERVICE_RESULT: #9
             # Connected device returned a service.
+            
+            while not self._irq_peripheral_connect:
+                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+                print('waiting for _irq_peripheral_connect')
+                
             conn_handle, start_handle, end_handle, uuid = data
+#             print('conn_handle, start_handle, end_handle, uuid', conn_handle, start_handle, end_handle, uuid)
+#             print('conn_handle == self._conn_handle', conn_handle == self._conn_handle)
+#             print('uuid == _UART_SERVICE_UUID', uuid == _UART_SERVICE_UUID)
             if conn_handle == self._conn_handle and uuid == _UART_SERVICE_UUID:
                 self._start_handle, self._end_handle = start_handle, end_handle
+                self._gattc_service_result = True
 
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
             # Service query complete.
+            self._gattc_service_timeout = False
+            t_start = utime.ticks_ms()
+            while (not self._gattc_service_result) and (not self._gattc_service_timeout):
+                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+                print('waiting for _gattc_service_result')
+                if (utime.ticks_ms() - t_start) > (5 * T_WAIT_FOR_IRQ_TERMINATED_MS):
+                    print('_gattc_service_result timeout')
+                    self._ble.gap_disconnect(self._conn_handle)
+                    self._gattc_service_timeout = True
+                
             if self._start_handle and self._end_handle:
                 self._ble.gattc_discover_characteristics(self._conn_handle, self._start_handle, self._end_handle)
                 self._gattc_service_done = True
@@ -171,14 +199,23 @@ class BleJmbSensor:
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT: #11
             # Connected device returned a characteristic.
+            while not self._gattc_service_done:
+                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+                print('waiting for _gattc_service_done')
+                
             conn_handle, def_handle, value_handle, properties, uuid = data
             if conn_handle == self._conn_handle and uuid == _UART_RX_CHAR_UUID[0]:
                 self._rx_handle = value_handle
             if conn_handle == self._conn_handle and uuid == _UART_TX_CHAR_UUID[0]:
                 self._tx_handle = value_handle
-
+            self._gattc_characteristic_result = True
+ 
         elif event == _IRQ_GATTC_CHARACTERISTIC_DONE: #12
             # Characteristic query complete.
+            while not self._gattc_characteristic_result:
+                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+                print('waiting for _gattc_characteristic_result')
+                
             if self._tx_handle is not None and self._rx_handle is not None:
                 self._gattc_characteristic_done = True
             else:
@@ -221,9 +258,9 @@ class BleJmbSensor:
             self._ble.gap_connect(None)
             print('-------> self._ble.gap_connect(None)')
             return False
-        t_start = utime.ticks_ms()
+#         t_start = utime.ticks_ms()
         self._ble.gap_connect(self._addr_type, self._addr)
-        print('connect duration:' + str(utime.ticks_ms() - t_start) + 'ms')
+#         print('connect duration:' + str(utime.ticks_ms() - t_start) + 'ms')
         return True
 
     # Disconnect from current device.
@@ -271,8 +308,9 @@ def main():
         ble = ubluetooth.BLE()
         sensor = BleJmbSensor(ble)
         # initialize the pass counter to 0
-        with open ('index.txt', 'w') as f:
-            f.write(str(0))
+#         with open ('index.txt', 'w') as f:
+#             f.write(str(0))
+
         # read and initialise variable for sensor from config from file
         sensor.config_read_conn_info()
         addr_type = sensor._addr_type
@@ -291,13 +329,21 @@ def main():
                 i = 1
             with open ('index.txt', 'w') as f:
                 f.write(str(i))
+            with open ('error.txt', 'a') as f:
+                f.write('reboot at pass: ' + str(i))
             
             #connect to the central
             sensor._addr_type, sensor._addr = addr_type, addr
+            print('connecting')
             connect_status = sensor.connect(sensor._addr_type, sensor._addr)
-            while not connect_status:
+            while not connect_status and not sensor._gattc_service_timeout:
+                print('waiting for connection --> timeaout status =', sensor._gattc_service_timeout)
                 utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
                 connect_status = sensor.connect(sensor._addr_type, sensor._addr)
+            
+            if sensor._gattc_service_timeout:
+                print('sorti de la mauvaise connection')
+
             
             while (not sensor.is_connected()
                    or not sensor._gattc_service_done
@@ -315,7 +361,8 @@ def main():
                 data_all = [temp, hum, pres, gas, alt, bat]
             else:
                 data_all = [temp, hum, pres, alt, bat]
-            
+            print()
+            print()
             for m in data_all:
                 msg = " ".join(m)
                 sensor.write(msg)
@@ -340,6 +387,7 @@ def main():
 #             sensor.write(msg)
                 
             elapsed = utime.ticks_ms() - t_start_total
+            print()
             print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
             print('going to sleep for ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
 
@@ -349,7 +397,7 @@ def main():
                 
 #             print(sensor._irq_list)
             sensor._irq_list = []
-            print('======================')
+            print('\n======================')
             utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)
         
 #         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
