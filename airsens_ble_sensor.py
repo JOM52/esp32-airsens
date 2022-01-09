@@ -160,13 +160,26 @@ class BleJmbSensor:
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
-            print('conn_handle:', conn_handle, ' - self._conn_handle:', self._conn_handle)
             if conn_handle == self._conn_handle:
-                # A system error has occurred. We reboot the microcontroller
+                # A system error has occurred. 
+                try:
+                    with open ('index.txt', 'r') as f:
+                        pp = f.readline().strip()
+                        if len(pp) == 0:
+                            pp = 1
+                except:
+                    pp = '1'
+                # error logging
+                try:
+                    with open ('error.txt', 'a') as f:
+                        f.write('reboot at pass: ' + pp + '\n')
+                except:
+                    with open ('error.txt', 'w') as f:
+                        f.write('reboot at pass: 1\n')
+                # reset the machine
                 machine.reset()
             elif conn_handle == 65535:
-#                 print('Central is not running. Start it and restart this programm')
-                sys.exit('ERROR:\nCentral is not running. Start it and restart this programm')
+                sys.exit('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
             self._irq_peripheral_disconnect = True
 
         elif event == _IRQ_GATTC_SERVICE_RESULT: #9
@@ -307,22 +320,6 @@ def main():
         # instatiation of bluetooth.BLE
         ble = ubluetooth.BLE()
         sensor = BleJmbSensor(ble)
-        # initialize the pass counter to 1
-        try:
-            with open ('index.txt', 'r') as f:
-                pp = f.readline().strip()
-                if len(pp) == 0:
-                    pp = 1
-        except:
-            pp = '1'
-        # error logging
-        try:
-            with open ('error.txt', 'a') as f:
-                f.write('reboot at pass: ' + pp + '\n')
-        except:
-            with open ('error.txt', 'w') as f:
-                f.write('reboot at pass: 1\n')
-            
 
         # read and initialise variable from config file
         sensor.config_read_conn_info()
