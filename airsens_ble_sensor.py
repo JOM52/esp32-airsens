@@ -31,8 +31,8 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
-MICROCONTROLER = "TTGO" # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI
+CONNECTED_SENSOR_TYPE = 'BME680' # 'NO_SENSOR' / 'BME280' / 'BME680'
+MICROCONTROLER = "WEMOS" # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -56,7 +56,7 @@ if MICROCONTROLER == 'TTGO':
     BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
     BM_VCC_PIN.on()
 elif MICROCONTROLER == 'WEMOS':
-    BM_VCC_PIN = 15
+    BM_VCC_PIN = 17
     BM_GND_PIN = 16
     BM_SDA_PIN = 21
     BM_SCL_pin = 22
@@ -293,8 +293,8 @@ def restart_ESP32(i, err_msg):
 
 
 def main():
-    t_start_total = utime.ticks_ms()
-    try:
+#     try:
+        t_start_total = utime.ticks_ms()
         print('initializing bluetooth')
         print('----------------------')
         # instanciation of bme280, bmex80 - Pin assignment
@@ -307,11 +307,7 @@ def main():
             elif CONNECTED_SENSOR_TYPE == 'NO_SENSOR':
                 bmeX = None
         except:
-            if CONNECTED_SENSOR_TYPE == 'BME280':
-                sx = 'bme280'
-            elif CONNECTED_SENSOR_TYPE == 'BME680':
-                sx ='bme680'
-            print('Ce n\'est pas un ' + sx + ' qui est branché?')
+            print('Pas trouvé de ' + CONNECTED_SENSOR_TYPE + ' branché?')
             print('Corrigez et relancez le programme!')
             print()
             print('push enter to exit')
@@ -404,19 +400,19 @@ def main():
         utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS)
         machine.deepsleep(T_DEEPSLEEP_MS - elapsed)
         
-    except:
-        try:
-            with open ('index.txt', 'r') as f:
-                i = int(f.readline())
-        except:
-            i = 1
-        restart_ESP32(i, msg)
-        msg = str(i) + ' - restart_ESP32: ' 
-        print(msg)
-        with open('error.txt' , 'a') as f:
-            f.write(msg+'\n')
-        utime.sleep_ms(2000)
-        machine.reset()
+#     except:
+#         try:
+#             with open ('index.txt', 'r') as f:
+#                 i = int(f.readline())
+#         except:
+#             i = 1
+#         restart_ESP32(i, 'msg')
+#         msg = str(i) + ' - restart_ESP32: ' 
+#         print(msg)
+#         with open('error.txt' , 'a') as f:
+#             f.write(msg+'\n')
+#         utime.sleep_ms(2000)
+#         machine.reset()
         
 
 if __name__ == "__main__":
