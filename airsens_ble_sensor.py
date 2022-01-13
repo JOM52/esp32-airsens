@@ -62,7 +62,7 @@ elif MICROCONTROLER == 'WEMOS':
     BM_GND_PIN = 16
     BM_GND_PIN = machine.Pin(BM_GND_PIN, machine.Pin.OUT)
     BM_GND_PIN.off()
-if MICROCONTROLER == 'NODE':
+elif MICROCONTROLER == 'NODE':
     BM_VCC_PIN = 23
     BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
     BM_VCC_PIN.on()

@@ -19,6 +19,8 @@ from machine import Pin, Timer, SoftI2C
 from utime import sleep_ms
 import ubluetooth
 
+CENTRAL_NAME = "jmb_airsens_ttgo_01"
+
 class BLE():
     def __init__(self, name):   
         self.name = name
@@ -94,12 +96,12 @@ class BLE():
     
     def advertiser(self):
         name = bytes(self.name, 'UTF-8')
-        self.ble.gap_advertise(100, bytearray('\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
+        self.ble.gap_advertise(100, bytearray('C\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
   
 def main():
-    print('program started')
+    print('central listening as <' + CENTRAL_NAME + '>')
     blue_led = Pin(2, Pin.OUT)
-    ble = BLE("jmb_airsens_ttgo_02")
+    ble = BLE(CENTRAL_NAME)
 
 if __name__ == '__main__':
     main()
