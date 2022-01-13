@@ -99,7 +99,7 @@ class BLE():
 def main():
     print('program started')
     blue_led = Pin(2, Pin.OUT)
-    ble = BLE("jmb_airsens_ttgo")
+    ble = BLE("jmb_airsens_ttgo_02")
 
 if __name__ == '__main__':
     main()

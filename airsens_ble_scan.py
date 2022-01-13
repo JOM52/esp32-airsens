@@ -4,9 +4,12 @@
 """
 file: airsens_scan.py 
 
-version: 1.0
+version: 1.1
 date: 7.1.2022
 author: jom52
+
+version 1.0 : 13.01.2022 --> first proto
+version 1.1 : 13.01.2022 --> logic corrected, input improved
 
 email: jom52.dev@gmail.com
 github: https://github.com/jom52/esp32-airsens
@@ -62,19 +65,24 @@ class BleJmbScan:
                 
     def config_write_conn_info(self, data):
         with open ('config.txt', 'w') as f:
-            for d in data:
-                if type(d) == int:
-                    f.write(str(d) + '\n')
-                else:
-                    f.write(d + '\n')
+            if data:
+                for d in data:
+                    if type(d) == int:
+                        f.write(str(d) + '\n')
+                    else:
+                        f.write(d + '\n')
+            else:
+                f.write('')
 
     def bytes_to_asc(self, v_bytes):
         return ubinascii.hexlify(bytes(v_bytes)).decode('utf-8')
 
     # Find a device advertising the environmental sensor service.
     def scan(self, callback=None):
+        self._addr_type = None
+        self._addr = None
+        self._scan_callback = callback
         self._ble.gap_scan(2000, 30000, 30000)
-
 
 
 def main():
@@ -100,33 +108,40 @@ def main():
             nearest_level = rssi
             nearest_index = nb
     
-    print('-------------------------------------------------------')
     # displa the list of central servers
-    for nb, c in enumerate(central_scan._central_list):
-        # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
-        msg = str(nb) + ' --> ' + c[4] + ' - ' + central_scan.bytes_to_asc(c[1]) + ' - ' + 'rssi:' + str(c[3])
-        print(msg)
-    print('-------------------------------------------------------')
-    
+    nb = len(central_scan._central_list)
     v_choice = 0
     if nb > 0:
+        print('-------------------------------------------------------')
+        for nb, c in enumerate(central_scan._central_list):
+            # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
+            msg = str(nb) + ' --> ' + c[4] + ' - ' + central_scan.bytes_to_asc(c[1]) + ' - ' + 'rssi:' + str(c[3])
+            print(msg)
+        print('-------------------------------------------------------')
+    
         # ask for client central choice
         print('\nTo witch central one do you want to connect ?')
         v_choice = int(input('Enter the central number (default=' +
                        str(nearest_index) + ' rssi:' + str(nearest_level) + ') :')
                        or str(nearest_index))
-    
-    # writing the choice in the config.txt file
-    print('writing config.txt --> central:' + str(v_choice))
-    addr_type = central_scan._central_list[v_choice][0]
-    addr = ubinascii.hexlify(bytes(central_scan._central_list[v_choice][1])).decode('utf-8')
-    name = central_scan._central_list[v_choice][4]
-    central_scan.config_write_conn_info([addr_type, addr, name])        
+        if v_choice in(0,nb):
+            # writing the choice in the config.txt file
+            print('writing config.txt --> central:' + str(v_choice))
+            addr_type = central_scan._central_list[v_choice][0]
+            addr = ubinascii.hexlify(bytes(central_scan._central_list[v_choice][1])).decode('utf-8')
+            name = central_scan._central_list[v_choice][4]
+            central_scan.config_write_conn_info([addr_type, addr, name])        
 
-    print('-------------------------------------------------------')
-    print('recorded: ' + central_scan._central_list[v_choice][4] +
-          ' address ' + central_scan.bytes_to_asc(central_scan._central_list[v_choice][1]))
-    print('-------------------------------------------------------')
+            print('-------------------------------------------------------')
+            print('recorded: ' + central_scan._central_list[v_choice][4] +
+                  ' address ' + central_scan.bytes_to_asc(central_scan._central_list[v_choice][1]))
+            print('-------------------------------------------------------')
+        else:
+            print('choix compris entre 0 et ' + str(nb))
+            with open('config.txt', 'w'): pass
+            print('le programme s\'arrete ici')
+    else:
+        print('no central found')
 
         
 if __name__ == "__main__":
