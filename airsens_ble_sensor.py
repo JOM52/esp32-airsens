@@ -30,9 +30,9 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
+CONNECTED_SENSOR_TYPE = 'BME680' # 'NO_SENSOR' / 'BME280' / 'BME680'
 # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI / NODE for node esp-32s
-MICROCONTROLER = "NODE" 
+MICROCONTROLER = "WEMOS" 
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -75,7 +75,7 @@ else:
     sys.exit()
 
 # Time constants
-T_DEEPSLEEP_MS = 30000 # interval between two measures
+T_DEEPSLEEP_MS = 10000 # interval between two measures
 T_BEFORE_DEEPSLEEP_MS = 50 # a short break before to go in deepsleep
 T_BETWEEN_2_DATA = 50 # intervall between two write on the bluetooth
 T_WAIT_FOR_IRQ_TERMINATED_MS = 5 # a short break when waititn to reduce power consumtion
@@ -115,12 +115,6 @@ class BleJmbSensor:
         self._ble = ble
         self._ble.active(True)
         self._ble.irq(self._irq)
-        
-        self._scan_done = False
-        self._gattc_service_done = None
-        self._gattc_characteristic_done = None
-        self._irq_list = list()
-
         self._reset()
 
     def _reset(self):
@@ -131,25 +125,13 @@ class BleJmbSensor:
 
         # Connected device.
         self._conn_handle = None
-        self._start_handle = None
-        self._end_handle = None
-        self._tx_handle = None
         self._rx_handle = None
         
-        self._connect_status = False
-        self._uart_central_found = False
-        self._gattc_service_result = False
-        self._gattc_service_done = False
-        self._gattc_service_timeout = False
-        self._gattc_characteristic_result = False
-        self._gattc_characteristic_done = False
+        # connect handling
         self._irq_peripheral_connect = False
         self._irq_peripheral_disconnect = False
         
     def _irq(self, event, data):
-        
-#         self._irq_list.append(event)
-#         print('->', event, end=' ')
 
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
@@ -184,56 +166,6 @@ class BleJmbSensor:
                 sys.exit('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
             self._irq_peripheral_disconnect = True
 
-        elif event == _IRQ_GATTC_SERVICE_RESULT: #9
-            # Connected device returned a service.
-            while not self._irq_peripheral_connect:
-                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-                print('waiting for _irq_peripheral_connect')
-            conn_handle, start_handle, end_handle, uuid = data
-            if conn_handle == self._conn_handle and uuid == _UART_SERVICE_UUID:
-                self._start_handle, self._end_handle = start_handle, end_handle
-                self._gattc_service_result = True
-
-        elif event == _IRQ_GATTC_SERVICE_DONE: #10
-            # Service query complete.
-            self._gattc_service_timeout = False
-            t_start = utime.ticks_ms()
-            while (not self._gattc_service_result) and (not self._gattc_service_timeout):
-                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-                print('waiting for _gattc_service_result')
-                if (utime.ticks_ms() - t_start) > (5 * T_WAIT_FOR_IRQ_TERMINATED_MS):
-                    print('_gattc_service_result timeout')
-                    self._ble.gap_disconnect(self._conn_handle)
-                    self._gattc_service_timeout = True
-                
-            if self._start_handle and self._end_handle:
-                self._ble.gattc_discover_characteristics(self._conn_handle, self._start_handle, self._end_handle)
-                self._gattc_service_done = True
-            else:
-                print("Failed to find uart service.")
-
-        elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT: #11
-            # Connected device returned a characteristic.
-            while not self._gattc_service_done:
-                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-                print('waiting for _gattc_service_done')
-            conn_handle, def_handle, value_handle, properties, uuid = data
-            if conn_handle == self._conn_handle and uuid == _UART_RX_CHAR_UUID[0]:
-                self._rx_handle = value_handle
-            if conn_handle == self._conn_handle and uuid == _UART_TX_CHAR_UUID[0]:
-                self._tx_handle = value_handle
-            self._gattc_characteristic_result = True
- 
-        elif event == _IRQ_GATTC_CHARACTERISTIC_DONE: #12
-            # Characteristic query complete.
-            while not self._gattc_characteristic_result:
-                utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-                print('waiting for _gattc_characteristic_result')
-            if self._tx_handle is not None and self._rx_handle is not None:
-                self._gattc_characteristic_done = True
-            else:
-                print("Failed to find uart rx characteristic.")
-
     def bytes_to_asc(self, v_bytes):
         return ubinascii.hexlify(bytes(v_bytes)).decode('utf-8')
 
@@ -250,14 +182,17 @@ class BleJmbSensor:
 
     def config_read_conn_info(self):
         with open ('config.txt', 'r') as f:
-            data = f.readlines()
-            for i, l in enumerate(data):
-                if i == 0:
-                    self._addr_type = int(l)
-                elif i == 1:
-                    self._addr = self.asc_to_bytes(l.replace('\n',''))
-                elif i == 2:
-                    self._name = l.replace('\n','')
+            config_data = f.readlines()
+            for l in config_data:
+                n, v = l.split(':')
+                if n == 'addr_type':
+                    self._addr_type = int(v)
+                elif n == 'addr':
+                    self._addr = self.asc_to_bytes(v.replace('\n', ''))
+                elif n == 'name':
+                    self._name = v.replace('\n', '')
+                elif n == 'rx_handle':
+                    self._rx_handle = int(v)
 
     # Returns true if we've successfully connected and discovered characteristics.
     def is_connected(self):
@@ -282,6 +217,7 @@ class BleJmbSensor:
     # Send data over the UART
     def write(self, v, response=False):
         if not self.is_connected():
+            print('not connected')
             return
         self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
 
@@ -305,12 +241,11 @@ def main():
 #     try:
 # =========================================================
         t_old = utime.ticks_ms()
-# =========================================================
         t_start_total = utime.ticks_ms()
         with open('process_mes.txt', 'w'): pass # clear the file
-        
-        print('initializing bluetooth')
+# =========================================================
         print('----------------------')
+        print('initializing bluetooth')
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = machine.SoftI2C(scl=machine.Pin(BM_SCL_pin), sda=machine.Pin(BM_SDA_PIN), freq=10000)
 # =========================================================
@@ -343,26 +278,20 @@ def main():
         time_mesurment('ble instantiation', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
-
         # read and initialise variable from config file
         sensor.config_read_conn_info()
         addr_type = sensor._addr_type
         addr = sensor._addr
-
-        # main loop
-#         while True:
 # =========================================================
         time_mesurment('sensor init', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
-            
         # mesure time for a single pass
-        t_start_passe = utime.ticks_ms()
         # blink the blue led
 #         blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=2, n_repeat=1)
 # =========================================================
-        time_mesurment('blink', t_old)
-        t_old = utime.ticks_ms()
+#         time_mesurment('blink', t_old)
+#         t_old = utime.ticks_ms()
 # =========================================================
         # load the pass counter value from file
         try:
@@ -376,28 +305,16 @@ def main():
         time_mesurment('index update', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
-        
         #connect to the central
         sensor._addr_type, sensor._addr = addr_type, addr
         print('connecting')
-        connect_status = sensor.connect(sensor._addr_type, sensor._addr)
-        while not connect_status and not sensor._gattc_service_timeout:
-            print('----> waiting for connection --> timeaout status =', sensor._gattc_service_timeout)
-            utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-            connect_status = sensor.connect(sensor._addr_type, sensor._addr)
+        sensor.connect(sensor._addr_type, sensor._addr)
 # =========================================================
         time_mesurment('connect', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
-        
-        # be sure that all task are terminated before to continue
-        while (not sensor.is_connected()
-               or not sensor._gattc_service_done
-               or not sensor._gattc_characteristic_done):
-            utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-# =========================================================
-        time_mesurment('connect wait', t_old)
-        t_old = utime.ticks_ms()
+#         time_mesurment('connect wait', t_old)
+#         t_old = utime.ticks_ms()
 # =========================================================
         # prepare the data's
         msg_template = 'jmb'
@@ -421,15 +338,19 @@ def main():
                 data_all = [temp, hum, pres, alt, bat]
         print()
 # =========================================================
-        time_mesurment('print', t_old)
+        time_mesurment('make msg', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # transmit the data to the central
-        for m in data_all:
-            msg = " ".join(m)
-            sensor.write(msg)
-            print(len(msg), msg)
-            utime.sleep_ms(T_BETWEEN_2_DATA)
+#         for m in data_all:
+#             msg = " ".join(m)
+#             sensor.write(msg)
+#             print(len(msg), msg)
+#             utime.sleep_ms(T_BETWEEN_2_DATA)
+# =========================================================
+        time_mesurment('print msg', t_old)
+        t_old = utime.ticks_ms()
+# =========================================================
         sensor.write('jmb\n')
 # =========================================================
         time_mesurment('write on ble', t_old)
@@ -444,20 +365,14 @@ def main():
         t_old = utime.ticks_ms()
 # =========================================================
         # last tasks
-        blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
+#         blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
 # =========================================================
-        time_mesurment('blink', t_old)
-        t_old = utime.ticks_ms()
+#         time_mesurment('blink', t_old)
+#         t_old = utime.ticks_ms()
 # =========================================================
-        elapsed = utime.ticks_ms() - t_start_passe
+        elapsed = utime.ticks_ms() - t_start_total
         print()
         print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
-#         print('going to sleep for ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
-                
-#         print(sensor._irq_list)
-        sensor._irq_list = []
-#         utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)
-        
         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
         print('======================')
 # =========================================================
@@ -465,7 +380,6 @@ def main():
         t_old = utime.ticks_ms()
         time_mesurment('total', t_start_total)
 # =========================================================
-#         utime.sleep_ms(T_BEFORE_DEEPSLEEP_MS)
         machine.deepsleep(T_DEEPSLEEP_MS - elapsed)
         
 #     except:
