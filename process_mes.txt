@@ -1,12 +1,12 @@
-I2C initialise ---> 8
+I2C initialise ---> 11
 sensor instantiation ---> 91
-ble instantiation ---> 286
-sensor init ---> 31
-index update ---> 18
-connect ---> 7
-make msg ---> 259
-write on ble ---> 359
-disconnect ---> 50
+ble instantiation ---> 372
+sensor init ---> 40
+index update ---> 25
+connect ---> 6
+make msg ---> 264
+write on ble ---> 362
+disconnect ---> 18
 finish ---> 6
 ---------------
-total ---> 1544
+total ---> 1627
