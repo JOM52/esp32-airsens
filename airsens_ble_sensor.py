@@ -15,7 +15,8 @@ low energy communication (BLE)
 v1.0 : 07.01.2022 --> first prototype
 v1.1 : 09.01.2022 --> process in work
 v1.2 : 11.01.2022 --> process time measurment
-v1.3 : 13.01.2022 --> added logic for uC NODE 
+v1.3 : 13.01.2022 --> added logic for uC NODE
+v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
 """
 
 import ubluetooth
@@ -230,7 +231,7 @@ def restart_ESP32(i, err_msg):
     machine.reset()
         
 
-def time_mesurment(process_info, t_old):
+def time_mesurement(process_info, t_old):
     t = utime.ticks_ms() - t_old
     with open ('process_mes.txt', 'a') as f:
         if process_info == 'total':
@@ -249,7 +250,7 @@ def main():
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = machine.SoftI2C(scl=machine.Pin(BM_SCL_pin), sda=machine.Pin(BM_SDA_PIN), freq=10000)
 # =========================================================
-        time_mesurment('I2C initialise', t_old)
+        time_mesurement('I2C initialise', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         try:
@@ -267,7 +268,7 @@ def main():
             sys.exit()
             
 # =========================================================
-        time_mesurment('sensor instantiation', t_old)
+        time_mesurement('sensor instantiation', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         
@@ -275,7 +276,7 @@ def main():
         ble = ubluetooth.BLE()
         sensor = BleJmbSensor(ble)
 # =========================================================
-        time_mesurment('ble instantiation', t_old)
+        time_mesurement('ble instantiation', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # read and initialise variable from config file
@@ -283,14 +284,14 @@ def main():
         addr_type = sensor._addr_type
         addr = sensor._addr
 # =========================================================
-        time_mesurment('sensor init', t_old)
+        time_mesurement('sensor init', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # mesure time for a single pass
         # blink the blue led
 #         blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=2, n_repeat=1)
 # =========================================================
-#         time_mesurment('blink', t_old)
+#         time_mesurement('blink', t_old)
 #         t_old = utime.ticks_ms()
 # =========================================================
         # load the pass counter value from file
@@ -302,7 +303,7 @@ def main():
         with open ('index.txt', 'w') as f:
             f.write(str(i))
 # =========================================================
-        time_mesurment('index update', t_old)
+        time_mesurement('index update', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         #connect to the central
@@ -310,10 +311,10 @@ def main():
         print('connecting')
         sensor.connect(sensor._addr_type, sensor._addr)
 # =========================================================
-        time_mesurment('connect', t_old)
+        time_mesurement('connect', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
-#         time_mesurment('connect wait', t_old)
+#         time_mesurement('connect wait', t_old)
 #         t_old = utime.ticks_ms()
 # =========================================================
         # prepare the data's
@@ -338,22 +339,18 @@ def main():
                 data_all = [temp, hum, pres, alt, bat]
         print()
 # =========================================================
-        time_mesurment('make msg', t_old)
+        time_mesurement('make msg', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # transmit the data to the central
-#         for m in data_all:
-#             msg = " ".join(m)
-#             sensor.write(msg)
-#             print(len(msg), msg)
-#             utime.sleep_ms(T_BETWEEN_2_DATA)
-# =========================================================
-        time_mesurment('print msg', t_old)
-        t_old = utime.ticks_ms()
-# =========================================================
+        for m in data_all:
+            msg = " ".join(m)
+            sensor.write(msg)
+            print(len(msg), msg)
+            utime.sleep_ms(T_BETWEEN_2_DATA)
         sensor.write('jmb\n')
 # =========================================================
-        time_mesurment('write on ble', t_old)
+        time_mesurement('write on ble', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # disconnect from the central
@@ -361,13 +358,13 @@ def main():
         while not sensor._irq_peripheral_disconnect:
             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 # =========================================================
-        time_mesurment('disconnect', t_old)
+        time_mesurement('disconnect', t_old)
         t_old = utime.ticks_ms()
 # =========================================================
         # last tasks
 #         blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
 # =========================================================
-#         time_mesurment('blink', t_old)
+#         time_mesurement('blink', t_old)
 #         t_old = utime.ticks_ms()
 # =========================================================
         elapsed = utime.ticks_ms() - t_start_total
@@ -376,9 +373,9 @@ def main():
         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
         print('======================')
 # =========================================================
-        time_mesurment('finish', t_old)
+        time_mesurement('finish', t_old)
         t_old = utime.ticks_ms()
-        time_mesurment('total', t_start_total)
+        time_mesurement('total', t_start_total)
 # =========================================================
         machine.deepsleep(T_DEEPSLEEP_MS - elapsed)
         

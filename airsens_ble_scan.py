@@ -15,7 +15,7 @@ informations are saved in the config.txt file and then
 used by the esp32_airsens_sensor.py program to connect to the central.
 
 v1.0 : 07.01.2022 --> first prototype
-v1.1 : 16.01.2022 --> added all info about central in config.txt
+v1.1 : 16.01.2022 --> added all info about central in config.txt (git branch: sensor_test)
 """
 
 import ubluetooth
@@ -266,6 +266,8 @@ def main():
                        or str(nearest_index))
         if v_choice in(0,nb):
             # writing the choice in the config.txt file
+            print(ble_scan._central_list[v_choice][1])
+            print(ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]))
             config_txt = 'addr_type:' + str(ble_scan._central_list[v_choice][0]) + '\n'
             config_txt += 'addr:' + ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]) + '\n'
             config_txt += 'adv_type:' + str(ble_scan._central_list[v_choice][2]) + '\n'

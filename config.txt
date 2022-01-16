@@ -1,3 +1,10 @@
-0
-3c61050ce72a
-jmb_airsens_ttgo_01
+addr_type:0
+addr:3c61050ce72a
+adv_type:0
+rssi:-58
+name:jmb_airsens_ttgo_01
+conn_handle:0
+start_handle:19
+end_handle:65535
+tx_handle:21
+rx_handle:24
