@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
-file: airsens_central.py
+file: airsens_central.py 
 
-version: 1.0
-date: 7.1.2022
 author: jom52
-
 email: jom52.dev@gmail.com
 github: https://github.com/jom52/esp32-airsens
 
 the *central* is always in listening mode (advertising).
 It accepts the connections of the sensors, receives the data and then transmits them to MQTT by WIFI.
+
+v1.0 : 07.01.2022 --> first prototype
+v1.2 : 17.01.2022 -->cleaned up, prototype stable for long test
 """
 
 from machine import Pin, Timer, SoftI2C

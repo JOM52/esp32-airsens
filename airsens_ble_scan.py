@@ -16,7 +16,7 @@ used by the esp32_airsens_sensor.py program to connect to the central.
 
 v1.0 : 07.01.2022 --> first prototype
 v1.1 : 16.01.2022 --> added all info about central in config.txt (git branch: sensor_test)
-v1.2 : 17.01.2022 --> prototype stable for long test
+v1.2 : 17.01.2022 -->cleaned up, prototype stable for long test
 """
 
 import ubluetooth

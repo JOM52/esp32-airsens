@@ -17,7 +17,7 @@ v1.1 : 09.01.2022 --> process in work
 v1.2 : 11.01.2022 --> process time measurment
 v1.3 : 13.01.2022 --> added logic for uC NODE
 v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
-v1.5 : 17.01.2022 --> optimized the import
+v1.5 : 17.01.2022 --> optimized the import --> prototype stable for long test
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
