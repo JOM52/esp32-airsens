@@ -16,6 +16,7 @@ used by the esp32_airsens_sensor.py program to connect to the central.
 
 v1.0 : 07.01.2022 --> first prototype
 v1.1 : 16.01.2022 --> added all info about central in config.txt (git branch: sensor_test)
+v1.2 : 17.01.2022 --> prototype stable for long test
 """
 
 import ubluetooth
@@ -223,19 +224,6 @@ def main():
         ble_scan.disconnect()
         while not ble_scan._irq_peripheral_disconnect:
             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-        
-        # "addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)"
-#         print('addr_type:', c[0])
-#         print('addr:', ble_scan.bytes_to_asc(c[1]))
-#         print('adv_type:', c[2])
-#         print('rssi:', c[3])
-#         print('name:', c[4])
-#         print('conn_handle:', ble_scan.conn_handle[nb])
-#         print('start_handle:', ble_scan.start_handle[nb])
-#         print('end_handle:', ble_scan.end_handle[nb])
-#         print('tx_handle:', ble_scan.tx_handle[nb])
-#         print('rx_handle:', ble_scan.rx_handle[nb])
-#         print()
 
         ble_scan._reset()
     
@@ -252,6 +240,12 @@ def main():
     nb = len(ble_scan._central_list)
     v_choice = 0
     if nb > 0:
+        # sort the list
+        if nb > 1:
+            for i in range(nb):
+                for j in range(nb-1):
+                    if ble_scan._central_list[i][3] > ble_scan._central_list[j][3]:
+                        ble_scan._central_list[i], ble_scan._central_list[j] = ble_scan._central_list[j], ble_scan._central_list[i]
         print('-------------------------------------------------------')
         for nb, c in enumerate(ble_scan._central_list):
             # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
@@ -264,10 +258,8 @@ def main():
         v_choice = int(input('Enter the central number (best choice=' +
                        str(nearest_index) + ' - rssi:' + str(nearest_level) + ':')
                        or str(nearest_index))
-        if v_choice in(0,nb):
+        if v_choice >= 0 and v_choice <= nb:
             # writing the choice in the config.txt file
-            print(ble_scan._central_list[v_choice][1])
-            print(ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]))
             config_txt = 'addr_type:' + str(ble_scan._central_list[v_choice][0]) + '\n'
             config_txt += 'addr:' + ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]) + '\n'
             config_txt += 'adv_type:' + str(ble_scan._central_list[v_choice][2]) + '\n'
@@ -279,10 +271,9 @@ def main():
             config_txt += 'tx_handle:' + str(ble_scan.tx_handle[v_choice]) + '\n'
             config_txt += 'rx_handle:' + str(ble_scan.rx_handle[v_choice]) + '\n'
             ble_scan.config_write_conn_info(config_txt)        
-#             print(config_txt)
 
             print('-------------------------------------------------------')
-            print('recorded: ' + ble_scan._central_list[v_choice][4] +
+            print('checked in: ' + ble_scan._central_list[v_choice][4] +
                   ' address ' + ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]))
             print('-------------------------------------------------------')
         else:

@@ -19,11 +19,11 @@ v1.3 : 13.01.2022 --> added logic for uC NODE
 v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
 """
 
-import ubluetooth
-import machine
-import ubinascii
-import utime
-import sys
+from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
+from machine import Pin, ADC, reset, SoftI2C, deepsleep
+from ubinascii import hexlify, unhexlify
+from utime import sleep_ms, ticks_ms
+from sys import exit
 
 from lib.adc1_cal import ADC1Cal
 from lib.blink import blink_internal_blue_led
@@ -31,9 +31,9 @@ from lib.ble_advertising import decode_services, decode_name
 from micropython import const
 
 # Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME680' # 'NO_SENSOR' / 'BME280' / 'BME680'
+CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
 # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI / NODE for node esp-32s
-MICROCONTROLER = "WEMOS" 
+MICROCONTROLER = "TTGO" 
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -47,25 +47,25 @@ else:
     print()
     print('push <ENTER> to exit')
     input()
-    sys.exit()
+    exit()
     
 # sensor pins and init
 BM_SDA_PIN = 21
 BM_SCL_pin = 22
 if MICROCONTROLER == 'TTGO':
     BM_VCC_PIN = 15
-    BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
+    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
 elif MICROCONTROLER == 'WEMOS':
     BM_VCC_PIN = 17
-    BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
+    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
     BM_GND_PIN = 16
-    BM_GND_PIN = machine.Pin(BM_GND_PIN, machine.Pin.OUT)
+    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
     BM_GND_PIN.off()
 elif MICROCONTROLER == 'NODE':
     BM_VCC_PIN = 23
-    BM_VCC_PIN = machine.Pin(BM_VCC_PIN, machine.Pin.OUT)
+    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
 else:
     print('ERROR\nNo known microcontroler defined. Correct that and restart the program')
@@ -73,7 +73,7 @@ else:
     print()
     print('push <ENTER> to exit')
     input()
-    sys.exit()
+    exit()
 
 # Time constants
 T_DEEPSLEEP_MS = 10000 # interval between two measures
@@ -87,11 +87,11 @@ R2 = 33e3 # second divider bridge resistor
 ADC1_PIN = const(35) # Measure of analog voltage (ex: battery voltage following)
 DIV = R2 / (R1 + R2) # (R2 / R1 + R2) -> V_meas = V(R1 + R2); V_adc = V(R2)  
 AVERAGING = const(10)                # no. of samples for averaging
-ubatt = ADC1Cal(machine.Pin(ADC1_PIN, machine.Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibrated")
+ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibrated")
 # set ADC result width
-ubatt.width(machine.ADC.WIDTH_12BIT)
+ubatt.width(ADC.WIDTH_12BIT)
 # set attenuation
-ubatt.atten(machine.ADC.ATTN_6DB)
+ubatt.atten(ADC.ATTN_6DB)
 
 # IRQ constants
 _IRQ_PERIPHERAL_CONNECT = const(7)
@@ -105,9 +105,9 @@ NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
 RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
 TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
     
-_UART_SERVICE_UUID = ubluetooth.UUID(NUS_UUID)
-_UART_RX_CHAR_UUID = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
-_UART_TX_CHAR_UUID = (ubluetooth.UUID(TX_UUID), ubluetooth.FLAG_READ | ubluetooth.FLAG_NOTIFY)
+_UART_SERVICE_UUID = UUID(NUS_UUID)
+_UART_RX_CHAR_UUID = (UUID(RX_UUID), FLAG_WRITE)
+_UART_TX_CHAR_UUID = (UUID(TX_UUID), FLAG_READ | FLAG_NOTIFY)
     
 BLE_UART_SERVICES = ((_UART_SERVICE_UUID, (_UART_TX_CHAR_UUID, _UART_RX_CHAR_UUID,)),)
 
@@ -162,16 +162,16 @@ class BleJmbSensor:
                     with open ('error.txt', 'w') as f:
                         f.write('reboot at pass: 1\n')
                 # reset the machine
-                machine.reset()
+                reset()
             elif conn_handle == 65535:
-                sys.exit('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
+                exit('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
             self._irq_peripheral_disconnect = True
 
     def bytes_to_asc(self, v_bytes):
-        return ubinascii.hexlify(bytes(v_bytes)).decode('utf-8')
+        return hexlify(bytes(v_bytes)).decode('utf-8')
 
     def asc_to_bytes(self, v_ascii):
-        return ubinascii.unhexlify((v_ascii))
+        return unhexlify((v_ascii))
                 
     def config_write_conn_info(self, data):
         with open ('config.txt', 'w') as f:
@@ -227,12 +227,12 @@ def restart_ESP32(i, err_msg):
     print(msg)
     with open('error.txt' , 'a') as f:
         f.write(msg+'\n')
-    utime.sleep_ms(1000)
-    machine.reset()
+    sleep_ms(1000)
+    reset()
         
 
 def time_mesurement(process_info, t_old):
-    t = utime.ticks_ms() - t_old
+    t = ticks_ms() - t_old
     with open ('process_mes.txt', 'a') as f:
         if process_info == 'total':
             f.write('---------------\n')
@@ -241,17 +241,17 @@ def time_mesurement(process_info, t_old):
 def main():
 #     try:
 # =========================================================
-        t_old = utime.ticks_ms()
-        t_start_total = utime.ticks_ms()
+        t_old = ticks_ms()
+        t_start_total = ticks_ms()
         with open('process_mes.txt', 'w'): pass # clear the file
 # =========================================================
-        print('----------------------')
-        print('initializing bluetooth')
+#         print('----------------------')
+#         print('initializing bluetooth')
         # instanciation of bme280, bmex80 - Pin assignment
-        i2c = machine.SoftI2C(scl=machine.Pin(BM_SCL_pin), sda=machine.Pin(BM_SDA_PIN), freq=10000)
+        i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
 # =========================================================
         time_mesurement('I2C initialise', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         try:
             if CONNECTED_SENSOR_TYPE == 'BME280':
@@ -265,34 +265,34 @@ def main():
             print('Corrigez et relancez le programme!')
             print()
             print('push enter to exit')
-            sys.exit()
+            exit()
             
 # =========================================================
         time_mesurement('sensor instantiation', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         
         # instatiation of bluetooth.BLE
-        ble = ubluetooth.BLE()
+        ble = BLE()
         sensor = BleJmbSensor(ble)
 # =========================================================
         time_mesurement('ble instantiation', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         # read and initialise variable from config file
         sensor.config_read_conn_info()
         addr_type = sensor._addr_type
         addr = sensor._addr
 # =========================================================
-        time_mesurement('sensor init', t_old)
-        t_old = utime.ticks_ms()
+        time_mesurement('sensor init config', t_old)
+        t_old = ticks_ms()
 # =========================================================
         # mesure time for a single pass
         # blink the blue led
 #         blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=2, n_repeat=1)
 # =========================================================
 #         time_mesurement('blink', t_old)
-#         t_old = utime.ticks_ms()
+#         t_old = ticks_ms()
 # =========================================================
         # load the pass counter value from file
         try:
@@ -304,7 +304,7 @@ def main():
             f.write(str(i))
 # =========================================================
         time_mesurement('index update', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         #connect to the central
         sensor._addr_type, sensor._addr = addr_type, addr
@@ -312,10 +312,10 @@ def main():
         sensor.connect(sensor._addr_type, sensor._addr)
 # =========================================================
         time_mesurement('connect', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
 #         time_mesurement('connect wait', t_old)
-#         t_old = utime.ticks_ms()
+#         t_old = ticks_ms()
 # =========================================================
         # prepare the data's
         msg_template = 'jmb'
@@ -339,45 +339,44 @@ def main():
                 data_all = [temp, hum, pres, alt, bat]
         print()
 # =========================================================
-        time_mesurement('make msg', t_old)
-        t_old = utime.ticks_ms()
+        time_mesurement('read sensor', t_old)
+        t_old = ticks_ms()
 # =========================================================
         # transmit the data to the central
         for m in data_all:
             msg = " ".join(m)
             sensor.write(msg)
             print(len(msg), msg)
-            utime.sleep_ms(T_BETWEEN_2_DATA)
+            sleep_ms(T_BETWEEN_2_DATA)
         sensor.write('jmb\n')
 # =========================================================
         time_mesurement('write on ble', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         # disconnect from the central
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
-            utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 # =========================================================
         time_mesurement('disconnect', t_old)
-        t_old = utime.ticks_ms()
+        t_old = ticks_ms()
 # =========================================================
         # last tasks
 #         blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
 # =========================================================
 #         time_mesurement('blink', t_old)
-#         t_old = utime.ticks_ms()
+#         t_old = ticks_ms()
 # =========================================================
-        elapsed = utime.ticks_ms() - t_start_total
+        elapsed = ticks_ms() - t_start_total
         print()
-        print('pass:', i, '-->',  str((utime.ticks_ms() - t_start_total)/1000) + 's', )
+        print('pass:', i, '-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
         print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
         print('======================')
 # =========================================================
         time_mesurement('finish', t_old)
-        t_old = utime.ticks_ms()
         time_mesurement('total', t_start_total)
 # =========================================================
-        machine.deepsleep(T_DEEPSLEEP_MS - elapsed)
+        deepsleep(T_DEEPSLEEP_MS - elapsed)
         
 #     except:
 #         try:
@@ -390,8 +389,8 @@ def main():
 #         print(msg)
 #         with open('error.txt' , 'a') as f:
 #             f.write(msg+'\n')
-#         utime.sleep_ms(2000)
-#         machine.reset()
+#         sleep_ms(2000)
+#         reset()
         
 
 if __name__ == "__main__":
