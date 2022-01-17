@@ -17,6 +17,7 @@ v1.1 : 09.01.2022 --> process in work
 v1.2 : 11.01.2022 --> process time measurment
 v1.3 : 13.01.2022 --> added logic for uC NODE
 v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
+v1.5 : 17.01.2022 --> optimized the import
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -24,11 +25,10 @@ from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
 from utime import sleep_ms, ticks_ms
 from sys import exit
+from micropython import const
 
 from lib.adc1_cal import ADC1Cal
-from lib.blink import blink_internal_blue_led
 from lib.ble_advertising import decode_services, decode_name
-from micropython import const
 
 # Hardware choices
 CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
@@ -239,14 +239,12 @@ def time_mesurement(process_info, t_old):
         f.write(process_info + ' ---> ' + str(t) + '\n')
         
 def main():
-#     try:
+    try:
 # =========================================================
         t_old = ticks_ms()
         t_start_total = ticks_ms()
         with open('process_mes.txt', 'w'): pass # clear the file
 # =========================================================
-#         print('----------------------')
-#         print('initializing bluetooth')
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
 # =========================================================
@@ -287,13 +285,6 @@ def main():
         time_mesurement('sensor init config', t_old)
         t_old = ticks_ms()
 # =========================================================
-        # mesure time for a single pass
-        # blink the blue led
-#         blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=2, n_repeat=1)
-# =========================================================
-#         time_mesurement('blink', t_old)
-#         t_old = ticks_ms()
-# =========================================================
         # load the pass counter value from file
         try:
             with open ('index.txt', 'r') as f:
@@ -313,9 +304,6 @@ def main():
 # =========================================================
         time_mesurement('connect', t_old)
         t_old = ticks_ms()
-# =========================================================
-#         time_mesurement('connect wait', t_old)
-#         t_old = ticks_ms()
 # =========================================================
         # prepare the data's
         msg_template = 'jmb'
@@ -361,12 +349,6 @@ def main():
         time_mesurement('disconnect', t_old)
         t_old = ticks_ms()
 # =========================================================
-        # last tasks
-#         blink_internal_blue_led(t_on_ms=200, t_off_ms=100, t_pause_ms=2, n_repeat=2)
-# =========================================================
-#         time_mesurement('blink', t_old)
-#         t_old = ticks_ms()
-# =========================================================
         elapsed = ticks_ms() - t_start_total
         print()
         print('pass:', i, '-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
@@ -378,19 +360,19 @@ def main():
 # =========================================================
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
-#     except:
-#         try:
-#             with open ('index.txt', 'r') as f:
-#                 i = int(f.readline())
-#         except:
-#             i = 1
-#         restart_ESP32(i, 'msg')
-#         msg = str(i) + ' - restart_ESP32: ' 
-#         print(msg)
-#         with open('error.txt' , 'a') as f:
-#             f.write(msg+'\n')
-#         sleep_ms(2000)
-#         reset()
+    except:
+        try:
+            with open ('index.txt', 'r') as f:
+                i = int(f.readline())
+        except:
+            i = 1
+        restart_ESP32(i, 'msg')
+        msg = str(i) + ' - restart_ESP32: ' 
+        print(msg)
+        with open('error.txt' , 'a') as f:
+            f.write(msg+'\n')
+        sleep_ms(2000)
+        reset()
         
 
 if __name__ == "__main__":
