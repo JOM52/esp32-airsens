@@ -18,6 +18,7 @@ v1.2 : 11.01.2022 --> process time measurment
 v1.3 : 13.01.2022 --> added logic for uC NODE
 v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
 v1.5 : 17.01.2022 --> optimized the import --> prototype stable for long test
+v1.6 : 19.01.2022 --> corrected error management
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -33,7 +34,7 @@ from lib.ble_advertising import decode_services, decode_name
 # Hardware choices
 CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
 # 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI / NODE for node esp-32s
-MICROCONTROLER = "TTGO" 
+MICROCONTROLER = "WEMOS" 
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -223,10 +224,8 @@ class BleJmbSensor:
         self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
 
 def restart_ESP32(i, err_msg):
-    msg = str(i) + ' - restart_ESP32: ' + err_msg
-    print(msg)
     with open('error.txt' , 'a') as f:
-        f.write(msg+'\n')
+        f.write(err_msg+'\n')
     sleep_ms(1000)
     reset()
         
@@ -366,13 +365,10 @@ def main():
                 i = int(f.readline())
         except:
             i = 1
-        restart_ESP32(i, 'msg')
         msg = str(i) + ' - restart_ESP32: ' 
         print(msg)
-        with open('error.txt' , 'a') as f:
-            f.write(msg+'\n')
         sleep_ms(2000)
-        reset()
+        restart_ESP32(i, 'msg')
         
 
 if __name__ == "__main__":
