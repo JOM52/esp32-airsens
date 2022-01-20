@@ -94,7 +94,11 @@ class BLE():
                 ble.send('blue_led' + str(blue_led.value()))
 
     # Nordic UART Service (NUS)       
-    def register(self):        
+    def register(self):
+# a tester *******************************************
+#         self.ble.gatts_set_buffer(0, 100)
+# ****************************************************
+        
         NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
         RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
         TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
@@ -106,7 +110,6 @@ class BLE():
         BLE_UART = (BLE_NUS, (BLE_TX, BLE_RX,))
         SERVICES = (BLE_UART, )
         ((self.tx, self.rx,), ) = self.ble.gatts_register_services(SERVICES)
-
     
     def advertiser(self):
         name = bytes(self.name, 'UTF-8')
