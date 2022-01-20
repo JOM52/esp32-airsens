@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
-MICROCONTROLER = "WEMOS" # 'TTGO' / 'WEMOS' / 'NODE'
-SENSOR_ID = 'jmb_9'
-
 """
 file: airsens_ble_sensor.py 
 
@@ -24,6 +19,7 @@ v1.3 : 13.01.2022 --> added logic for uC NODE
 v1.4 : 16.01.2022 --> transfert functions from sensor to scan (git branch: sensor_test)
 v1.5 : 17.01.2022 --> optimized the import --> prototype stable for long test
 v1.6 : 19.01.2022 --> corrected error management
+v1.7 : 20.01.2022 --> corrected errors on conection
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -36,6 +32,22 @@ from micropython import const
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 
+# Hardware choices
+CONNECTED_SENSOR_TYPE = None
+MICROCONTROLER = None
+SENSOR_ID = None
+T_DEEPSLEEP_MS = None
+        
+# def sensor_config_read():
+with open('sensor_config.txt', 'r') as f:
+    lines = f.readlines()
+    for l in lines:
+        c, v, r = l.split('=')
+        if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
+        elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
+        elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
+        elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
+
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
 elif CONNECTED_SENSOR_TYPE == 'BME680':
@@ -43,16 +55,16 @@ elif CONNECTED_SENSOR_TYPE == 'BME680':
 elif CONNECTED_SENSOR_TYPE == 'NO_SENSOR':
     pass
 else:
-    print('ERROR\nNo known sensor defined. Correct that and restart the program')
-    print('Possibilities are 0, BME280 or BME680')
-    print()
-    print('push <ENTER> to exit')
-    input()
+    print('ERROR')
+    print('No known sensor defined. Correct that and restart the program')
+    print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
+
     
 # sensor pins and init
 BM_SDA_PIN = 21
 BM_SCL_pin = 22
+
 if MICROCONTROLER == 'TTGO':
     BM_VCC_PIN = 15
     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
@@ -69,15 +81,12 @@ elif MICROCONTROLER == 'NODE':
     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
 else:
-    print('ERROR\nNo known microcontroler defined. Correct that and restart the program')
-    print('Possibilities are TTGO or WEMOS')
-    print()
-    print('push <ENTER> to exit')
-    input()
+    print('ERROR')
+    print('No known microcontroler defined. Correct that and restart the program')
+    print('Possibilities are TTGO, WEMOS ot NODE')
     exit()
 
 # Time constants
-T_DEEPSLEEP_MS = 10000 # interval between two measures
 T_BETWEEN_2_DATA = 50 # intervall between two write on the bluetooth
 T_WAIT_FOR_IRQ_TERMINATED_MS = 100 # a short break when waititn to reduce power consumtion
 T_WAIT_UNTIL_CONNECTD_MS = 500 # wait until the connection with the central is established
@@ -134,7 +143,6 @@ class BleJmbSensor:
         self._irq_peripheral_disconnect = False
         
     def _irq(self, event, data):
-#         print('event:', event)
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
             # Connect successful.
@@ -146,7 +154,6 @@ class BleJmbSensor:
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
-#             print('conn_handle:', conn_handle)
             if conn_handle == self._conn_handle:
                 # A system error has occurred. 
                 try:
@@ -198,6 +205,7 @@ class BleJmbSensor:
                 elif n == 'rx_handle':
                     self._rx_handle = int(v)
 
+
     # Returns true if we've successfully connected and discovered characteristics.
     def is_connected(self):
         return self._irq_peripheral_connect
@@ -206,11 +214,6 @@ class BleJmbSensor:
     def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
         self._addr_type = addr_type
         self._addr = addr
-#         print('self._addr_type:', self._addr_type, 'self._addr:', self._addr)
-#         if self._addr_type is None or self._addr is None:
-#             self._ble.gap_connect(None)
-#             print('-------> self._ble.gap_connect(None)')
-#             return False
         self._ble.gap_connect(self._addr_type, self._addr)
         return True
 
@@ -242,6 +245,7 @@ def time_mesurement(process_info, t_old):
         
 def main():
 #     try:
+
         t_start_total = ticks_ms()
 #         with open('process_mes.txt', 'w'): pass # clear the file
 
@@ -257,8 +261,6 @@ def main():
         except:
             print('Pas trouvé de ' + CONNECTED_SENSOR_TYPE + ' branché?')
             print('Corrigez et relancez le programme!')
-            print()
-            print('push enter to exit')
             exit()
             
         # instatiation of bluetooth.BLE
@@ -298,12 +300,10 @@ def main():
         
         #connect to the central
         print('connecting')
-#         sensor._irq_peripheral_connect = False
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect:
             print('----> waiting for connection')
             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-#             sensor.connect(sensor._addr_type, sensor._addr)
 
         # transmit the data to the central
         for m in data_all:
