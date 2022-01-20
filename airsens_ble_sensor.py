@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# Hardware choices
+CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
+MICROCONTROLER = "WEMOS" # 'TTGO' / 'WEMOS' / 'NODE'
+SENSOR_ID = 'jmb_9'
+
 """
 file: airsens_ble_sensor.py 
 
@@ -30,11 +35,6 @@ from micropython import const
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
-
-# Hardware choices
-CONNECTED_SENSOR_TYPE = 'BME280' # 'NO_SENSOR' / 'BME280' / 'BME680'
-# 'TTGO' for ESP32 TTGO T-Display / WEMOS for ESP32 WEMOS D1 MINI / NODE for node esp-32s
-MICROCONTROLER = "WEMOS" 
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -78,9 +78,9 @@ else:
 
 # Time constants
 T_DEEPSLEEP_MS = 10000 # interval between two measures
-T_BEFORE_DEEPSLEEP_MS = 50 # a short break before to go in deepsleep
 T_BETWEEN_2_DATA = 50 # intervall between two write on the bluetooth
-T_WAIT_FOR_IRQ_TERMINATED_MS = 5 # a short break when waititn to reduce power consumtion
+T_WAIT_FOR_IRQ_TERMINATED_MS = 100 # a short break when waititn to reduce power consumtion
+T_WAIT_UNTIL_CONNECTD_MS = 500 # wait until the connection with the central is established
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -134,7 +134,7 @@ class BleJmbSensor:
         self._irq_peripheral_disconnect = False
         
     def _irq(self, event, data):
-
+#         print('event:', event)
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
             # Connect successful.
@@ -146,6 +146,7 @@ class BleJmbSensor:
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
             conn_handle, _, _ = data
+#             print('conn_handle:', conn_handle)
             if conn_handle == self._conn_handle:
                 # A system error has occurred. 
                 try:
@@ -165,7 +166,8 @@ class BleJmbSensor:
                 # reset the machine
                 reset()
             elif conn_handle == 65535:
-                exit('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
+                print('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
+                self._irq_peripheral_connect = False
             self._irq_peripheral_disconnect = True
 
     def bytes_to_asc(self, v_bytes):
@@ -204,10 +206,11 @@ class BleJmbSensor:
     def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
         self._addr_type = addr_type
         self._addr = addr
-        if self._addr_type is None or self._addr is None:
-            self._ble.gap_connect(None)
-            print('-------> self._ble.gap_connect(None)')
-            return False
+#         print('self._addr_type:', self._addr_type, 'self._addr:', self._addr)
+#         if self._addr_type is None or self._addr is None:
+#             self._ble.gap_connect(None)
+#             print('-------> self._ble.gap_connect(None)')
+#             return False
         self._ble.gap_connect(self._addr_type, self._addr)
         return True
 
@@ -238,18 +241,12 @@ def time_mesurement(process_info, t_old):
         f.write(process_info + ' ---> ' + str(t) + '\n')
         
 def main():
-    try:
-# =========================================================
-        t_old = ticks_ms()
+#     try:
         t_start_total = ticks_ms()
-        with open('process_mes.txt', 'w'): pass # clear the file
-# =========================================================
+#         with open('process_mes.txt', 'w'): pass # clear the file
+
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
-# =========================================================
-        time_mesurement('I2C initialise', t_old)
-        t_old = ticks_ms()
-# =========================================================
         try:
             if CONNECTED_SENSOR_TYPE == 'BME280':
                 bmeX = bmex80.BME280(i2c=i2c)
@@ -264,26 +261,11 @@ def main():
             print('push enter to exit')
             exit()
             
-# =========================================================
-        time_mesurement('sensor instantiation', t_old)
-        t_old = ticks_ms()
-# =========================================================
-        
         # instatiation of bluetooth.BLE
         ble = BLE()
         sensor = BleJmbSensor(ble)
-# =========================================================
-        time_mesurement('ble instantiation', t_old)
-        t_old = ticks_ms()
-# =========================================================
         # read and initialise variable from config file
         sensor.config_read_conn_info()
-        addr_type = sensor._addr_type
-        addr = sensor._addr
-# =========================================================
-        time_mesurement('sensor init config', t_old)
-        t_old = ticks_ms()
-# =========================================================
         # load the pass counter value from file
         try:
             with open ('index.txt', 'r') as f:
@@ -292,43 +274,37 @@ def main():
             i = 1
         with open ('index.txt', 'w') as f:
             f.write(str(i))
-# =========================================================
-        time_mesurement('index update', t_old)
-        t_old = ticks_ms()
-# =========================================================
-        #connect to the central
-        sensor._addr_type, sensor._addr = addr_type, addr
-        print('connecting')
-        sensor.connect(sensor._addr_type, sensor._addr)
-# =========================================================
-        time_mesurement('connect', t_old)
-        t_old = ticks_ms()
-# =========================================================
+            
         # prepare the data's
-        msg_template = 'jmb'
         if CONNECTED_SENSOR_TYPE == 'NO_SENSOR':
-            temp = [msg_template, 'temp', str(20)]
-            hum = [msg_template, 'hum', str(50)]
-            pres = [msg_template, 'pres', str(950)]
-            alt = [msg_template, 'alt', str(750)]
-            bat = [msg_template, 'bat', str(4)]
+            temp = [SENSOR_ID, 'temp', str(20)]
+            hum = [SENSOR_ID, 'hum', str(50)]
+            pres = [SENSOR_ID, 'pres', str(950)]
+            alt = [SENSOR_ID, 'alt', str(750)]
+            bat = [SENSOR_ID, 'bat', str(4)]
             data_all = [temp, hum, pres, alt, bat]
         else:            
-            temp = [msg_template, 'temp', str(bmeX.temperature)]
-            hum = [msg_template, 'hum', str(bmeX.humidity)]
-            pres = [msg_template, 'pres', str(bmeX.pressure)]
-            alt = [msg_template, 'alt', str(bmeX.altitude)]
-            bat = [msg_template, 'bat', str(ubatt.voltage / 1000)]
+            temp = [SENSOR_ID, 'temp', str(bmeX.temperature)]
+            hum = [SENSOR_ID, 'hum', str(bmeX.humidity)]
+            pres = [SENSOR_ID, 'pres', str(bmeX.pressure)]
+            alt = [SENSOR_ID, 'alt', str(bmeX.altitude)]
+            bat = [SENSOR_ID, 'bat', str(ubatt.voltage / 1000)]
             if CONNECTED_SENSOR_TYPE == 'BME680':
-                gas = [msg_template, 'gas', str(bmeX.gas / 1000)]
+                gas = [SENSOR_ID, 'gas', str(bmeX.gas / 1000)]
                 data_all = [temp, hum, pres, gas, alt, bat]
             else:
                 data_all = [temp, hum, pres, alt, bat]
         print()
-# =========================================================
-        time_mesurement('read sensor', t_old)
-        t_old = ticks_ms()
-# =========================================================
+        
+        #connect to the central
+        print('connecting')
+#         sensor._irq_peripheral_connect = False
+        sensor.connect(sensor._addr_type, sensor._addr)
+        while not sensor._irq_peripheral_connect:
+            print('----> waiting for connection')
+            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+#             sensor.connect(sensor._addr_type, sensor._addr)
+
         # transmit the data to the central
         for m in data_all:
             msg = " ".join(m)
@@ -336,39 +312,31 @@ def main():
             print(len(msg), msg)
             sleep_ms(T_BETWEEN_2_DATA)
         sensor.write('jmb\n')
-# =========================================================
-        time_mesurement('write on ble', t_old)
-        t_old = ticks_ms()
-# =========================================================
+        
         # disconnect from the central
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
+            print('----> waiting for disconnection')
             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-# =========================================================
-        time_mesurement('disconnect', t_old)
-        t_old = ticks_ms()
-# =========================================================
+            
+        # finishing tasks
         elapsed = ticks_ms() - t_start_total
         print()
         print('pass:', i, '-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
-        print('going to deepsleep for: ' + str(int((T_BEFORE_DEEPSLEEP_MS + T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
+        print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
         print('======================')
-# =========================================================
-        time_mesurement('finish', t_old)
-        time_mesurement('total', t_start_total)
-# =========================================================
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
-    except:
-        try:
-            with open ('index.txt', 'r') as f:
-                i = int(f.readline())
-        except:
-            i = 1
-        msg = str(i) + ' - restart_ESP32: ' 
-        print(msg)
-        sleep_ms(2000)
-        restart_ESP32(i, 'msg')
+#     except:
+#         try:
+#             with open ('index.txt', 'r') as f:
+#                 i = int(f.readline())
+#         except:
+#             i = 1
+#         msg = str(i) + ' - restart_ESP32: ' 
+#         print(msg)
+#         sleep_ms(2000)
+#         restart_ESP32(i, 'msg')
         
 
 if __name__ == "__main__":
