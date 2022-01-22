@@ -21,15 +21,19 @@ v0.1.5 : 17.01.2022 --> optimized the import --> prototype stable for long test
 v0.1.6 : 19.01.2022 --> corrected error management
 v0.1.7 : 20.01.2022 --> corrected errors on conection
 v0.1.8 : 21.01.2022 --> the message is coded in 20 bytes (added module lib encode_decode.py)
-v0.1.9 : 22.02.2022 --> error management improoved
+v0.1.9 : 22.02.2022 --> error management improved
+v0.0.10 : 22.01.2022 --> write on uart improved
+v0.0.11 : 22.01.2022 --> read config_sensor.txt improved
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
 from utime import sleep_ms, ticks_ms
-from sys import exit
+from sys import exit, print_exception
 from micropython import const
+from uio import StringIO
+
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
@@ -42,10 +46,11 @@ SENSOR_ID = None
 T_DEEPSLEEP_MS = None
         
 # def sensor_config_read():
-with open('sensor_config.txt', 'r') as f:
+with open('config_sensor.txt', 'r') as f:
     lines = f.readlines()
     for l in lines:
-        c, v, r = l.split('=')
+#         l.replace('\n\r', '') #.replace('\r', '')
+        c, v = l.replace('\n\r', '').split('=')
         if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
@@ -113,6 +118,7 @@ _IRQ_GATTC_SERVICE_RESULT = const(9)
 _IRQ_GATTC_SERVICE_DONE = const(10)
 _IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
 _IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
+_IRQ_GATTC_WRITE_DONE = const(17)
 
 NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
 RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
@@ -144,8 +150,12 @@ class BleJmbSensor:
         # connect handling
         self._irq_peripheral_connect = False
         self._irq_peripheral_disconnect = False
+        self._irq_write_done = False
+        
+#         self.irq_list = []
         
     def _irq(self, event, data):
+#         self.irq_list.append(event)
 #         print('event:', event)
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
@@ -162,7 +172,7 @@ class BleJmbSensor:
                 # A system error has occurred. 
                 pp = get_and_increase_pass_counter()
                 # error logging
-                log_error('reboot at pass: ' + str(pp) + '\n')
+                log_error('reboot at pass: ' + str(pp))
                 # reset the machine
                 reset()
                 
@@ -172,6 +182,10 @@ class BleJmbSensor:
                 
             self._irq_peripheral_disconnect = True
 
+        elif event == _IRQ_GATTC_WRITE_DONE: #17
+            self._irq_write_done = True
+
+
     def bytes_to_asc(self, v_bytes):
         return hexlify(bytes(v_bytes)).decode('utf-8')
 
@@ -179,7 +193,7 @@ class BleJmbSensor:
         return unhexlify((v_ascii))
                 
     def config_write_conn_info(self, data):
-        with open ('config.txt', 'w') as f:
+        with open ('config_uart.txt', 'w') as f:
             for d in data:
                 if type(d) == int:
                     f.write(str(d) + '\n')
@@ -187,7 +201,7 @@ class BleJmbSensor:
                     f.write(d + '\n')
 
     def config_read_conn_info(self):
-        with open ('config.txt', 'r') as f:
+        with open ('config_uart.txt', 'r') as f:
             config_data = f.readlines()
             for l in config_data:
                 n, v = l.split(':')
@@ -308,35 +322,48 @@ def main():
 #             print('----> waiting for connection')
             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
         
-        sensor.write(msg)
+        sensor.write(msg, 1)
+        while not sensor._irq_write_done:
+            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
         print()
-        print('message: ' + msg)
-        sleep_ms(T_BETWEEN_2_DATA)
+        print('jmb_' + str(SENSOR_ID) + ' --> ' + msg)
+#         sleep_ms(T_BETWEEN_2_DATA)
         
         # disconnect from the central
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
 #             print('----> waiting for disconnection')
             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
-            
+
         # finishing tasks
         elapsed = ticks_ms() - t_start_total
+#         print('iqr_list:', sensor.irq_list)
         print('pass:', i, '-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
-        print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed)/1000)) + 's')
-        print('===========================')
+        print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
+        print('==============================')
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
     except Exception as e:
-        get_and_increase_pass_counter   ()         
-#         print(e)
-        msg = 'pass:' + str(i) + ' - restart_ESP32 --> ' + str(e)
-        print('***************************************')
+        # manage the pass counter
+        get_and_increase_pass_counter   ()
+        # make the error message
+        s = StringIO()
+        print_exception(e, s)  
+        s = s.getvalue()
+        s = s.split('\n')                                                                   
+        line = s[1].split(',')
+        line = line[1]
+        error = s[2]
+        err = error + line
+        # write and print the error message
+        msg = 'pass:' + str(i) + ' - restart_ESP32 --> ' + str(err)
+        print('-------------------------------------------------------')
         print(msg)
         log_error(msg)
-        print('***************************************')
+        print('-------------------------------------------------------')
+        # restart the machine
         sleep_ms(2000)
         restart_ESP32(i, 'msg')
-        
 
 if __name__ == "__main__":
     main()

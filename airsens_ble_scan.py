@@ -11,12 +11,13 @@ github: https://github.com/jom52/esp32-airsens
 this program scans the bluetooth network to find all the *ble_central* whose name starts with *jmb_*
 and lets the user choose the server they want to work with.
 
-informations are saved in the config.txt file and then
+informations are saved in the config_uart.txt file and then
 used by the esp32_airsens_sensor.py program to connect to the central.
 
-v1.0 : 07.01.2022 --> first prototype
-v1.1 : 16.01.2022 --> added all info about central in config.txt (git branch: sensor_test)
-v1.2 : 17.01.2022 -->cleaned up, prototype stable for long test
+v0.1.0 : 07.01.2022 --> first prototype
+v0.1.1 : 16.01.2022 --> added all info about central in config_uart.txt (git branch: sensor_test)
+v0.1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
+v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
 """
 
 import ubluetooth
@@ -167,7 +168,7 @@ class BleAirsensScan:
                 print("Failed to find uart rx characteristic.")
                 
     def config_write_conn_info(self, data):
-        with open ('config.txt', 'w') as f:
+        with open ('config_uart.txt', 'w') as f:
             if data:
                 f.write(data)
             else:
@@ -259,7 +260,7 @@ def main():
                        str(nearest_index) + ' - rssi:' + str(nearest_level) + ':')
                        or str(nearest_index))
         if v_choice >= 0 and v_choice <= nb:
-            # writing the choice in the config.txt file
+            # writing the choice in the config_uart.txt file
             config_txt = 'addr_type:' + str(ble_scan._central_list[v_choice][0]) + '\n'
             config_txt += 'addr:' + ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]) + '\n'
             config_txt += 'adv_type:' + str(ble_scan._central_list[v_choice][2]) + '\n'
@@ -278,7 +279,7 @@ def main():
             print('-------------------------------------------------------')
         else:
             print('choix compris entre 0 et ' + str(nb))
-            with open('config.txt', 'w'): pass
+            with open('config_uart.txt', 'w'): pass
             print('le programme s\'arrete ici')
     else:
         print('no central found')
