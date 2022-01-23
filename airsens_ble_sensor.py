@@ -86,9 +86,12 @@ elif MICROCONTROLER == 'WEMOS':
     BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
     BM_GND_PIN.off()
 elif MICROCONTROLER == 'NODE':
-    BM_VCC_PIN = 23
+    BM_VCC_PIN = 19
     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
+    BM_GND_PIN = 18
+    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
+    BM_GND_PIN.off()
 else:
     print('ERROR')
     print('No known microcontroler defined. Correct that and restart the program')
