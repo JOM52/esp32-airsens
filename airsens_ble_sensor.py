@@ -22,8 +22,9 @@ v0.1.6 : 19.01.2022 --> corrected error management
 v0.1.7 : 20.01.2022 --> corrected errors on conection
 v0.1.8 : 21.01.2022 --> the message is coded in 20 bytes (added module lib encode_decode.py)
 v0.1.9 : 22.02.2022 --> error management improved
-v0.0.10 : 22.01.2022 --> write on uart improved
-v0.0.11 : 22.01.2022 --> read config_sensor.txt improved
+v0.1.10 : 22.01.2022 --> write on uart improved
+v0.1.11 : 22.01.2022 --> read config_sensor.txt improved
+v0.1.12 : 22.01.2022 --> improved error counter and dispaly
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -171,6 +172,7 @@ class BleJmbSensor:
             if conn_handle == self._conn_handle:
                 # A system error has occurred. 
                 pp = get_and_increase_pass_counter()
+                get_and_increase_error_counter()
                 # error logging
                 log_error('reboot at pass: ' + str(pp))
                 # reset the machine
@@ -269,8 +271,26 @@ def get_and_increase_pass_counter():
     with open ('index.txt', 'w') as f:
         f.write(str(i))
     return i
-
-
+            
+def get_and_increase_error_counter():
+    # load the pass counter value from file
+    try:
+        with open ('err_count.txt', 'r') as f:
+            i = int(f.readline()) + 1
+    except:
+        i = 1
+    with open ('err_count.txt', 'w') as f:
+        f.write(str(i))
+    return i
+            
+def get_error_counter():
+    # load the pass counter value from file
+    try:
+        with open ('err_count.txt', 'r') as f:
+            i = int(f.readline())
+    except:
+        i = 1
+    return i
         
 def main():
     try:
@@ -338,14 +358,15 @@ def main():
         # finishing tasks
         elapsed = ticks_ms() - t_start_total
 #         print('iqr_list:', sensor.irq_list)
-        print('pass:', i, '-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
+        print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
         print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
         print('==============================')
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
     except Exception as e:
         # manage the pass counter
-        get_and_increase_pass_counter   ()
+        get_and_increase_pass_counter()
+        get_and_increase_error_counter()
         # make the error message
         s = StringIO()
         print_exception(e, s)  
