@@ -22,6 +22,12 @@ import ubluetooth
 from lib.encode_decode import decode_msg
 
 CENTRAL_NAME = "jmb_airsens_ttgo_02"
+ADVERTISE_INTERVAL = 250 # org value = 100
+
+_IRQ_CENTRAL_CONNECT = const(1)
+_IRQ_CENTRAL_DISCONNECT = const(2)
+_IRQ_GATTS_WRITE = const(3)
+
 
 class BLE():
     def __init__(self, name):   
@@ -32,16 +38,14 @@ class BLE():
         self.led = Pin(2, Pin.OUT)
         self.timer1 = Timer(0)
         self.timer2 = Timer(1)
-        
-        self.pass_counter = 0
-        
         self.disconnected()
+        
         self.ble.irq(self.ble_irq)
         self.register()
-#================================================
-        self.ble.gatts_set_buffer(self.tx, 30)
-#================================================
         self.advertiser()
+        
+        self.irq_list = []
+        self.pass_counter = 0
 
     # the blue led stop blinking wenn disconnected
     def disconnected(self):        
@@ -56,18 +60,23 @@ class BLE():
 
     # irq handler
     def ble_irq(self, event, data):
-        if event == 1:
-            '''Central disconnected'''
+        
+        self.irq_list.append(event)
+        
+        if event == _IRQ_CENTRAL_CONNECT: #1
+            '''Central connected'''
             self.disconnected()
             self.led(1)
         
-        elif event == 2:
+        elif event == _IRQ_CENTRAL_DISCONNECT: #2
             '''Central disconnected'''
             self.advertiser()
             self.connected()
+            print(self.irq_list)
+            self.irq_list = []
         
-        elif event == 3:
-            '''New message received'''            
+        elif event == _IRQ_GATTS_WRITE: #3
+            '''New message received'''
             buffer = self.ble.gatts_read(self.rx)
             message = buffer.decode('UTF-8').strip()
             if message[:3] == 'jmb':
@@ -79,18 +88,6 @@ class BLE():
                 print('--> gas: ' + str(gas))
                 print('--> bat: ' + str(bat))
                 print('--------------')
-#                 data = message.split(' ')
-#                 if len(data) > 1:
-#                     print(data[0], data[1], data[2])
-#                 else:
-#                     self.pass_counter += 1
-#                     print('passe:', self.pass_counter)
-#                     print('----------')
-                
-            if message == 'blue_led':
-                blue_led.value(not blue_led.value())
-                print('blue_led', blue_led.value())
-                ble.send('blue_led' + str(blue_led.value()))
 
     # Nordic UART Service (NUS)       
     def register(self):        
@@ -109,7 +106,7 @@ class BLE():
     
     def advertiser(self):
         name = bytes(self.name, 'UTF-8')
-        self.ble.gap_advertise(100, bytearray('\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
+        self.ble.gap_advertise(ADVERTISE_INTERVAL, bytearray('\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
   
 def main():
     print('central listening as <' + CENTRAL_NAME + '>')

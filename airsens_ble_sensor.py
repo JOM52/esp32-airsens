@@ -25,6 +25,8 @@ v0.1.9 : 22.02.2022 --> error management improved
 v0.1.10 : 22.01.2022 --> write on uart improved
 v0.1.11 : 22.01.2022 --> read config_sensor.txt improved
 v0.1.12 : 22.01.2022 --> improved error counter and dispaly
+v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
+v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -40,7 +42,7 @@ from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 from lib.encode_decode import encode_msg
 
-# Hardware choices
+# Hardware choices to import from config_sensor.txt
 CONNECTED_SENSOR_TYPE = None
 MICROCONTROLER = None
 SENSOR_ID = None
@@ -50,7 +52,6 @@ T_DEEPSLEEP_MS = None
 with open('config_sensor.txt', 'r') as f:
     lines = f.readlines()
     for l in lines:
-#         l.replace('\n\r', '') #.replace('\r', '')
         c, v = l.replace('\n\r', '').split('=')
         if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
@@ -68,7 +69,6 @@ else:
     print('No known sensor defined. Correct that and restart the program')
     print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
-
     
 # sensor pins and init
 BM_SDA_PIN = 21
@@ -99,9 +99,7 @@ else:
     exit()
 
 # Time constants
-T_BETWEEN_2_DATA = 50 # intervall between two write on the bluetooth
-T_WAIT_FOR_IRQ_TERMINATED_MS = 100 # a short break when waititn to reduce power consumtion
-T_WAIT_UNTIL_CONNECTD_MS = 500 # wait until the connection with the central is established
+# T_WAIT_FOR_IRQ_TERMINATED_MS = 50 # a short break when waititn to reduce power consumtion
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -123,16 +121,22 @@ _IRQ_GATTC_SERVICE_DONE = const(10)
 _IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
 _IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
 _IRQ_GATTC_WRITE_DONE = const(17)
-
-NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
-TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
-    
-_UART_SERVICE_UUID = UUID(NUS_UUID)
-_UART_RX_CHAR_UUID = (UUID(RX_UUID), FLAG_WRITE)
-_UART_TX_CHAR_UUID = (UUID(TX_UUID), FLAG_READ | FLAG_NOTIFY)
-    
-BLE_UART_SERVICES = ((_UART_SERVICE_UUID, (_UART_TX_CHAR_UUID, _UART_RX_CHAR_UUID,)),)
+# 
+# NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
+# RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
+# TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
+#     
+# _UART_SERVICE_UUID = UUID(NUS_UUID)
+# _UART_RX_CHAR_UUID = (UUID(RX_UUID), FLAG_WRITE)
+# _UART_TX_CHAR_UUID = (UUID(TX_UUID), FLAG_READ | FLAG_NOTIFY)
+#     
+# BLE_UART_SERVICES = ((_UART_SERVICE_UUID, (_UART_TX_CHAR_UUID, _UART_RX_CHAR_UUID,)),)
+# 
+# print('_UART_SERVICE_UUID', _UART_SERVICE_UUID)
+# print('_UART_RX_CHAR_UUID', _UART_RX_CHAR_UUID)
+# print('_UART_TX_CHAR_UUID', _UART_TX_CHAR_UUID)
+# print('BLE_UART_SERVICES', BLE_UART_SERVICES)
+# print()
 
 class BleJmbSensor:
     def __init__(self, ble):
@@ -140,6 +144,7 @@ class BleJmbSensor:
         self._ble.active(True)
         self._ble.irq(self._irq)
         self._reset()
+        self._irq_list = []
 
     def _reset(self):
         # Cached name and address from a successful scan.
@@ -155,12 +160,12 @@ class BleJmbSensor:
         self._irq_peripheral_connect = False
         self._irq_peripheral_disconnect = False
         self._irq_write_done = False
-        
-#         self.irq_list = []
+        self._irq_service_done = False
         
     def _irq(self, event, data):
-#         self.irq_list.append(event)
-#         print('event:', event)
+        
+        self._irq_list.append(event)
+        
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
             # Connect successful.
@@ -180,12 +185,22 @@ class BleJmbSensor:
                 log_error('reboot at pass: ' + str(pp))
                 # reset the machine
                 reset()
-                
             elif conn_handle == 65535:
                 print('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
                 self._irq_peripheral_connect = False
+                exit()
+            else:
+                print('conn_handle form disconnect:', conn_handle)
                 
             self._irq_peripheral_disconnect = True
+
+        elif event == _IRQ_GATTC_SERVICE_RESULT: #9
+#             conn_handle, start_handle, end_handle, uuid = data
+#             print('conn_handle, start_handle, end_handle, uuid:', data)
+            pass
+        
+        elif event == _IRQ_GATTC_SERVICE_DONE: #10
+            self._irq_service_done = True
 
         elif event == _IRQ_GATTC_WRITE_DONE: #17
             self._irq_write_done = True
@@ -341,29 +356,31 @@ def main():
         #connect to the central
 #         print('connecting')
         sensor.connect(sensor._addr_type, sensor._addr)
-        while not sensor._irq_peripheral_connect:
+        while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
+            pass
 #             print('----> waiting for connection')
-            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
         
         sensor.write(msg, 1)
-        while not sensor._irq_write_done:
-            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+        while  not sensor._irq_write_done:
+            pass
+#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
         print()
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg)
-#         sleep_ms(T_BETWEEN_2_DATA)
         
         # disconnect from the central
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
+            pass
 #             print('----> waiting for disconnection')
-            sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
         # finishing tasks
         elapsed = ticks_ms() - t_start_total
-#         print('iqr_list:', sensor.irq_list)
         print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
         print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
         print('==============================')
+        print('irq_list:', sensor._irq_list)
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
     except Exception as e:
