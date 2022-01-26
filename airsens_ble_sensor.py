@@ -27,6 +27,7 @@ v0.1.11 : 22.01.2022 --> read config_sensor.txt improved
 v0.1.12 : 22.01.2022 --> improved error counter and dispaly
 v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
 v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
+v0.1.15 : 26.01.2022 --> error management impoved
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -36,7 +37,7 @@ from utime import sleep_ms, ticks_ms
 from sys import exit, print_exception
 from micropython import const
 from uio import StringIO
-
+from random import uniform
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
@@ -57,6 +58,9 @@ with open('config_sensor.txt', 'r') as f:
         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
+        
+# todo --- a tester ----------------------------
+# T_DEEPSLEEP_MS += uniform(-500, 500)
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -98,9 +102,6 @@ else:
     print('Possibilities are TTGO, WEMOS ot NODE')
     exit()
 
-# Time constants
-# T_WAIT_FOR_IRQ_TERMINATED_MS = 50 # a short break when waititn to reduce power consumtion
-
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
 R2 = 33e3 # second divider bridge resistor
@@ -121,22 +122,6 @@ _IRQ_GATTC_SERVICE_DONE = const(10)
 _IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
 _IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
 _IRQ_GATTC_WRITE_DONE = const(17)
-# 
-# NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-# RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
-# TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
-#     
-# _UART_SERVICE_UUID = UUID(NUS_UUID)
-# _UART_RX_CHAR_UUID = (UUID(RX_UUID), FLAG_WRITE)
-# _UART_TX_CHAR_UUID = (UUID(TX_UUID), FLAG_READ | FLAG_NOTIFY)
-#     
-# BLE_UART_SERVICES = ((_UART_SERVICE_UUID, (_UART_TX_CHAR_UUID, _UART_RX_CHAR_UUID,)),)
-# 
-# print('_UART_SERVICE_UUID', _UART_SERVICE_UUID)
-# print('_UART_RX_CHAR_UUID', _UART_RX_CHAR_UUID)
-# print('_UART_TX_CHAR_UUID', _UART_TX_CHAR_UUID)
-# print('BLE_UART_SERVICES', BLE_UART_SERVICES)
-# print()
 
 class BleJmbSensor:
     def __init__(self, ble):
@@ -176,28 +161,12 @@ class BleJmbSensor:
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT: #8
             # Disconnect (either initiated by us or the remote end).
+            self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
-            if conn_handle == self._conn_handle:
-                # A system error has occurred. 
-                pp = get_and_increase_pass_counter()
-                get_and_increase_error_counter()
-                # error logging
-                log_error('reboot at pass: ' + str(pp))
-                # reset the machine
-                reset()
-            elif conn_handle == 65535:
+            if conn_handle == 65535:
                 print('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
                 self._irq_peripheral_connect = False
                 exit()
-            else:
-                print('conn_handle form disconnect:', conn_handle)
-                
-            self._irq_peripheral_disconnect = True
-
-        elif event == _IRQ_GATTC_SERVICE_RESULT: #9
-#             conn_handle, start_handle, end_handle, uuid = data
-#             print('conn_handle, start_handle, end_handle, uuid:', data)
-            pass
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
             self._irq_service_done = True
@@ -234,11 +203,6 @@ class BleJmbSensor:
                 elif n == 'rx_handle':
                     self._rx_handle = int(v)
 
-
-    # Returns true if we've successfully connected and discovered characteristics.
-    def is_connected(self):
-        return self._irq_peripheral_connect
-
     # Connect to the specified device (otherwise use cached address from a scan).
     def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
         self._addr_type = addr_type
@@ -252,24 +216,30 @@ class BleJmbSensor:
         self._reset()
 
     # Send data over the UART
-    def write(self, v, response=False):
-        if not self.is_connected():
-            print('not connected')
-            return
-        self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
+    def write(self, v, i):
 
-def restart_ESP32(i, err_msg):
-    sleep_ms(1000)
-    reset()
-        
-
-def time_mesurement(process_info, t_old):
-    t = ticks_ms() - t_old
-    with open ('process_mes.txt', 'a') as f:
-        if process_info == 'total':
-            f.write('---------------\n')
-        f.write(process_info + ' ---> ' + str(t) + '\n')
-        
+        try:
+            self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
+        except Exception as e:
+            # manage the pass counter
+            get_and_increase_error_counter()
+            # make the error message
+            get_and_log_error_info(e, i)
+            # restart the machine
+            reset()
+            
+def get_and_log_error_info(err_info, i):
+    
+    s = StringIO()
+    print_exception(err_info, s)
+    s1 = s.getvalue().replace('\n', '=+=')
+    s2 = s1.split('=+=')
+    s3 = s2[1].lstrip()
+    
+    # write and print the error message
+    msg = ('pass:' + str(i) + ' --> ' + s3)
+    log_error(msg)
+    
 def log_error(msg):
     # error logging
     try:
@@ -278,6 +248,13 @@ def log_error(msg):
     except:
         with open ('error.txt', 'w') as f:
             f.write(str(msg) + '\n')
+            
+def time_mesurement(process_info, t_old):
+    t = ticks_ms() - t_old
+    with open ('process_mes.txt', 'a') as f:
+        if process_info == 'total':
+            f.write('---------------\n')
+        f.write(process_info + ' ---> ' + str(t) + '\n')
             
 def get_and_increase_pass_counter():
     # load the pass counter value from file
@@ -354,17 +331,14 @@ def main():
             
         msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, gas, bat)
         #connect to the central
-#         print('connecting')
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
             pass
-#             print('----> waiting for connection')
-#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
         
-        sensor.write(msg, 1)
+        sensor.write(msg, i)
         while  not sensor._irq_write_done:
             pass
-#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
+        
         print()
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg)
         
@@ -372,39 +346,23 @@ def main():
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
             pass
-#             print('----> waiting for disconnection')
-#             sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
 
         # finishing tasks
         elapsed = ticks_ms() - t_start_total
         print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
         print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
         print('==============================')
-        print('irq_list:', sensor._irq_list)
+#         print('irq_list:', sensor._irq_list)
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
     except Exception as e:
         # manage the pass counter
-        get_and_increase_pass_counter()
         get_and_increase_error_counter()
         # make the error message
-        s = StringIO()
-        print_exception(e, s)  
-        s = s.getvalue()
-        s = s.split('\n')                                                                   
-        line = s[1].split(',')
-        line = line[1]
-        error = s[2]
-        err = error + line
-        # write and print the error message
-        msg = 'pass:' + str(i) + ' - restart_ESP32 --> ' + str(err)
-        print('-------------------------------------------------------')
-        print(msg)
-        log_error(msg)
-        print('-------------------------------------------------------')
+        get_and_log_error_info(e, i)
         # restart the machine
         sleep_ms(2000)
-        restart_ESP32(i, 'msg')
+        reset()
 
 if __name__ == "__main__":
     main()
