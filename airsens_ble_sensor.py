@@ -182,15 +182,15 @@ class BleJmbSensor:
                 pp = get_and_increase_pass_counter()
                 get_and_increase_error_counter()
                 # error logging
-                log_error('reboot at pass: ' + str(pp))
+                log_error('reboot at pass: ' + str(pp) + ' conn_handle == self.conn_handle:')
                 # reset the machine
                 reset()
             elif conn_handle == 65535:
                 print('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
                 self._irq_peripheral_connect = False
                 exit()
-            else:
-                print('conn_handle form disconnect:', conn_handle)
+#             else:
+#                 print('conn_handle form disconnect:', conn_handle)
                 
             self._irq_peripheral_disconnect = True
 
@@ -236,8 +236,8 @@ class BleJmbSensor:
 
 
     # Returns true if we've successfully connected and discovered characteristics.
-    def is_connected(self):
-        return self._irq_peripheral_connect
+#     def is_connected(self):
+#         return self._irq_peripheral_connect
 
     # Connect to the specified device (otherwise use cached address from a scan).
     def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
@@ -253,16 +253,35 @@ class BleJmbSensor:
 
     # Send data over the UART
     def write(self, v, response=False):
-        if not self.is_connected():
-            print('not connected')
-            return
-        self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
-
-def restart_ESP32(i, err_msg):
-    sleep_ms(1000)
-    reset()
-        
-
+#         if not self.is_connected():
+#             print('not connected')
+#             return
+        try:
+            self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1 if response else 0)
+        except Exception as e:
+            # manage the pass counter
+            get_and_increase_pass_counter()
+            get_and_increase_error_counter()
+            # make the error message
+            s = StringIO()
+            print_exception(e, s)  
+            s = s.getvalue()
+            sx = s.replace('\n', ' - ')
+            s = s.split('\n')                                                                   
+            line = s[1].split(',')
+            line = line[1]
+            error = s[2]
+            err = error + line
+            # write and print the error message
+            msg = ('pass:' + str(i) + ' - ble.gattc_write --> ' + str(err)
+                   + ' self._conn_handle:', self._conn_handle
+                   + ' self._rx_handle:', self._rx_handle
+                   + sx
+                   )
+            log_error(msg)
+            # restart the machine
+            reset()
+            
 def time_mesurement(process_info, t_old):
     t = ticks_ms() - t_old
     with open ('process_mes.txt', 'a') as f:
@@ -404,7 +423,7 @@ def main():
         print('-------------------------------------------------------')
         # restart the machine
         sleep_ms(2000)
-        restart_ESP32(i, 'msg')
+        reset()
 
 if __name__ == "__main__":
     main()
