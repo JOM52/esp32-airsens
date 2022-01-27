@@ -28,7 +28,8 @@ v0.1.12 : 22.01.2022 --> improved error counter and dispaly
 v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
 v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 v0.1.15 : 26.01.2022 --> error management impoved
-v0.1.16 : 27.01.2022 --> mgmt of central not running error 
+v0.1.16 : 27.01.2022 --> mgmt of central not running error
+v0.1.17 : 27.01.2022 --> added execution time sesurment
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -43,6 +44,8 @@ from random import uniform
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 from lib.encode_decode import encode_msg
+
+DEBUG_MES_EXEC_IME = True
 
 # Hardware choices to import from config_sensor.txt
 CONNECTED_SENSOR_TYPE = None
@@ -149,7 +152,6 @@ class BleJmbSensor:
         self._irq_service_done = False
         
     def _irq(self, event, data):
-        
         self._irq_list.append(event)
         
         if event == _IRQ_PERIPHERAL_CONNECT: #7
@@ -217,16 +219,43 @@ class BleJmbSensor:
 
     # Send data over the UART
     def write(self, v, i):
-
         try:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
             get_and_increase_error_counter()
             get_and_log_error_info(e, i)
             reset()
-            
-def get_and_log_error_info(err_info, i):
+
+class exec_time_mes:
     
+    def __init__(self):
+        self._start_time = None
+        self._old_time = None
+        self._time_list = []
+        self._string_len = 25
+
+    def time_step(self, stage):
+        if stage == 'start':
+            self._start_time = ticks_ms()
+        elif stage == 'stop':
+            total_time = ticks_ms() - self._start_time
+            with open ('process_mes.txt', 'w') as f:
+                old_time = self._start_time
+                for line in self._time_list:
+                    step_name,value = line.split(':')
+                    step_name += ' '*(self._string_len-len(step_name))
+                    step_time = '{:.0f}'.format(float(value) - old_time)
+                    old_time = float(value)
+                    f.write(step_name + ': ' + step_time + ' ms\n')
+                f.write('-'*(self._string_len + 10) + '\n')
+                step_name = 'total execution time'
+                f.write(step_name + ' '*(self._string_len-len(step_name)) + ': ' + str(total_time) + ' ms\n')
+        else:
+            self._time_list.append(stage + ':' + str(ticks_ms()))
+            self._old_time = ticks_ms()
+
+
+def get_and_log_error_info(err_info, i):
     s = StringIO()
     print_exception(err_info, s)
     s1 = s.getvalue().replace('\n', '=+=')
@@ -246,7 +275,8 @@ def log_error(msg):
     except:
         with open ('error.txt', 'w') as f:
             f.write(str(msg) + '\n')
-            
+
+
 def time_mesurement(process_info, t_old):
     t = ticks_ms() - t_old
     with open ('process_mes.txt', 'a') as f:
@@ -287,12 +317,14 @@ def get_error_counter():
         
 def main():
     try:
-        t_start_total = ticks_ms()
-#         with open('process_mes.txt', 'w'): pass # clear the file
+        start_time = ticks_ms()
+        mes = exec_time_mes()
+        if DEBUG_MES_EXEC_IME: mes.time_step('start')
         i = get_and_increase_pass_counter()
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
+        if DEBUG_MES_EXEC_IME: mes.time_step('I2C class initialise')
         try:
             if CONNECTED_SENSOR_TYPE == 'BME280':
                 bmeX = bmex80.BME280(i2c=i2c)
@@ -304,10 +336,13 @@ def main():
             print('Pas trouvé de ' + CONNECTED_SENSOR_TYPE + ' branché?')
             print('Corrigez et relancez le programme!')
             exit()
-            
+        if DEBUG_MES_EXEC_IME: mes.time_step('sensor class initialise')
+        
         # instatiation of bluetooth.BLE
         ble = BLE()
         sensor = BleJmbSensor(ble)
+        if DEBUG_MES_EXEC_IME: mes.time_step('ble class initialise')
+        
         # read and initialise variable from config file
         sensor.config_read_conn_info()
         
@@ -326,16 +361,19 @@ def main():
             hum = float(bmeX.humidity)
             pres = float(bmeX.pressure)
             bat = float(ubatt.voltage/1000)
+        if DEBUG_MES_EXEC_IME: mes.time_step('sensor config')
             
         msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, gas, bat)
         #connect to the central
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
             pass
+        if DEBUG_MES_EXEC_IME: mes.time_step('central connect')
         
         sensor.write(msg, i)
         while  not sensor._irq_write_done:
             pass
+        if DEBUG_MES_EXEC_IME: mes.time_step('message write')
         
         print()
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg)
@@ -344,13 +382,15 @@ def main():
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
             pass
+        if DEBUG_MES_EXEC_IME: mes.time_step('central disconnect')
 
         # finishing tasks
-        elapsed = ticks_ms() - t_start_total
-        print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - t_start_total)/1000) + 's', )
+        elapsed = ticks_ms() - start_time
+        print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - elapsed)/1000) + 's', )
         print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
         print('==============================')
 #         print('irq_list:', sensor._irq_list)
+        if DEBUG_MES_EXEC_IME: mes.time_step('stop')
         deepsleep(T_DEEPSLEEP_MS - elapsed)
         
     except Exception as e:
