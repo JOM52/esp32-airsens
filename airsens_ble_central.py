@@ -72,22 +72,29 @@ class BLE():
             '''Central disconnected'''
             self.advertiser()
             self.connected()
-            print(self.irq_list)
+#             print(self.irq_list)
             self.irq_list = []
         
         elif event == _IRQ_GATTS_WRITE: #3
             '''New message received'''
             buffer = self.ble.gatts_read(self.rx)
+#             print(buffer)
             message = buffer.decode('UTF-8').strip()
             if message[:3] == 'jmb':
                 jmb_id, piece, temp, hum, pres, gas, bat = decode_msg(message)
-                print(jmb_id + '-' + piece)
-                print('--> temp: ' + str(temp))
-                print('--> hum: ' + str(hum))
-                print('--> pres: ' + str(pres))
-                print('--> gas: ' + str(gas))
-                print('--> bat: ' + str(bat))
-                print('--------------')
+                print(jmb_id + '-' + piece
+                      + ' --> temp: ' + str(temp)
+                      + ' --> hum: ' + str(hum)
+                      + ' --> pres: ' + str(pres)
+                      + ' --> gas: ' + str(gas)
+                      + ' --> bat: ' + str(bat))
+
+#                 print('--> temp: ' + str(temp))
+#                 print('--> hum: ' + str(hum))
+#                 print('--> pres: ' + str(pres))
+#                 print('--> gas: ' + str(gas))
+#                 print('--> bat: ' + str(bat))
+#                 print('--------------')
 
     # Nordic UART Service (NUS)       
     def register(self):        
