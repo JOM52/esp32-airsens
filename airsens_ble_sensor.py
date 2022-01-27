@@ -31,21 +31,27 @@ v0.1.15 : 26.01.2022 --> error management impoved
 v0.1.16 : 27.01.2022 --> mgmt of central not running error
 v0.1.17 : 27.01.2022 --> added execution time sesurment
 """
+from utime import sleep_ms, ticks_ms
+start_time = ticks_ms()
+from lib.exec_time_mes import exec_time_mes
+DEBUG_MES_EXEC_IME = True
+mes = exec_time_mes()
+if DEBUG_MES_EXEC_IME: mes.time_step('start')
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
-from utime import sleep_ms, ticks_ms
 from sys import exit, print_exception
 from micropython import const
 from uio import StringIO
 from random import uniform
+if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 from lib.encode_decode import encode_msg
+if DEBUG_MES_EXEC_IME: mes.time_step('lib import')
 
-DEBUG_MES_EXEC_IME = True
 
 # Hardware choices to import from config_sensor.txt
 CONNECTED_SENSOR_TYPE = None
@@ -62,6 +68,7 @@ with open('config_sensor.txt', 'r') as f:
         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
+if DEBUG_MES_EXEC_IME: mes.time_step('sensor config read file')
         
 # todo --- a tester ----------------------------
 # T_DEEPSLEEP_MS += uniform(-500, 500)
@@ -77,6 +84,7 @@ else:
     print('No known sensor defined. Correct that and restart the program')
     print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
+if DEBUG_MES_EXEC_IME: mes.time_step('sensor import')
     
 # sensor pins and init
 BM_SDA_PIN = 21
@@ -105,6 +113,7 @@ else:
     print('No known microcontroler defined. Correct that and restart the program')
     print('Possibilities are TTGO, WEMOS ot NODE')
     exit()
+if DEBUG_MES_EXEC_IME: mes.time_step('uC config')
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -117,6 +126,7 @@ ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibra
 ubatt.width(ADC.WIDTH_12BIT)
 # set attenuation
 ubatt.atten(ADC.ATTN_6DB)
+if DEBUG_MES_EXEC_IME: mes.time_step('analog config')
 
 # IRQ constants
 _IRQ_PERIPHERAL_CONNECT = const(7)
@@ -226,33 +236,6 @@ class BleJmbSensor:
             get_and_log_error_info(e, i)
             reset()
 
-class exec_time_mes:
-    
-    def __init__(self):
-        self._start_time = None
-        self._old_time = None
-        self._time_list = []
-        self._string_len = 25
-
-    def time_step(self, stage):
-        if stage == 'start':
-            self._start_time = ticks_ms()
-        elif stage == 'stop':
-            total_time = ticks_ms() - self._start_time
-            with open ('process_mes.txt', 'w') as f:
-                old_time = self._start_time
-                for line in self._time_list:
-                    step_name,value = line.split(':')
-                    step_name += ' '*(self._string_len-len(step_name))
-                    step_time = '{:.0f}'.format(float(value) - old_time)
-                    old_time = float(value)
-                    f.write(step_name + ': ' + step_time + ' ms\n')
-                f.write('-'*(self._string_len + 10) + '\n')
-                step_name = 'total execution time'
-                f.write(step_name + ' '*(self._string_len-len(step_name)) + ': ' + str(total_time) + ' ms\n')
-        else:
-            self._time_list.append(stage + ':' + str(ticks_ms()))
-            self._old_time = ticks_ms()
 
 
 def get_and_log_error_info(err_info, i):
@@ -317,9 +300,9 @@ def get_error_counter():
         
 def main():
     try:
-        start_time = ticks_ms()
-        mes = exec_time_mes()
-        if DEBUG_MES_EXEC_IME: mes.time_step('start')
+#         start_time = ticks_ms()
+#         mes = exec_time_mes()
+        if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
         i = get_and_increase_pass_counter()
 
         # instanciation of bme280, bmex80 - Pin assignment
@@ -386,7 +369,7 @@ def main():
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
-        print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - elapsed)/1000) + 's', )
+        print('pass:', i, '- error count:', get_error_counter(),'-->',  str(elapsed) + 'ms', )
         print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
         print('==============================')
 #         print('irq_list:', sensor._irq_list)
