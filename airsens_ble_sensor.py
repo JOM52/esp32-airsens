@@ -28,7 +28,7 @@ v0.1.12 : 22.01.2022 --> improved error counter and dispaly
 v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
 v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 v0.1.15 : 26.01.2022 --> error management impoved
-v0.1.16 : 27.01.2022 --> mgmt of central not running error
+v0.1.16 : 27.01.2022 --> mgmt of central not running error 
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
