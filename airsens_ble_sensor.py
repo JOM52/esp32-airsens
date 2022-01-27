@@ -28,6 +28,7 @@ v0.1.12 : 22.01.2022 --> improved error counter and dispaly
 v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
 v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 v0.1.15 : 26.01.2022 --> error management impoved
+v0.1.16 : 27.01.2022 --> mgmt of central not running error
 """
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
@@ -164,9 +165,8 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                print('\n\nERROR:\nCentral is not running. Start it and restart this programm\n\n')
-                self._irq_peripheral_connect = False
-                exit()
+                log_error('Central is not running')
+                reset()
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
             self._irq_service_done = True
@@ -221,11 +221,8 @@ class BleJmbSensor:
         try:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
-            # manage the pass counter
             get_and_increase_error_counter()
-            # make the error message
             get_and_log_error_info(e, i)
-            # restart the machine
             reset()
             
 def get_and_log_error_info(err_info, i):
@@ -235,9 +232,10 @@ def get_and_log_error_info(err_info, i):
     s1 = s.getvalue().replace('\n', '=+=')
     s2 = s1.split('=+=')
     s3 = s2[1].lstrip()
+    s4 = s2[2].lstrip()
     
     # write and print the error message
-    msg = ('pass:' + str(i) + ' --> ' + s3)
+    msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
     log_error(msg)
     
 def log_error(msg):
