@@ -29,23 +29,32 @@ v0.1.13 : 23.01.2022 --> _IRQ_GATTC_SERVICE_DONE checked
 v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 v0.1.15 : 26.01.2022 --> error management impoved
 v0.1.16 : 27.01.2022 --> mgmt of central not running error
-v0.1.17 : 27.01.2022 --> added execution time sesurment
+v0.1.17 : 27.01.2022 --> added execution time mesurment
 """
+from utime import sleep_ms, ticks_ms
+start_time = ticks_ms()
+from lib.exec_time_mes import exec_time_mes
+DEBUG_MES_EXEC_IME = True
+mes = exec_time_mes()
+if DEBUG_MES_EXEC_IME: mes.time_step('start')
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
-from utime import sleep_ms, ticks_ms
-from sys import exit, print_exception
+from sys import exit#, print_exception
 from micropython import const
-from uio import StringIO
+# from uio import StringIO
 from random import uniform
+if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 from lib.encode_decode import encode_msg
+from lib.log_and_count import LogAndCount
+log = LogAndCount()
 
-DEBUG_MES_EXEC_IME = True
+if DEBUG_MES_EXEC_IME: mes.time_step('lib import')
+
 
 # Hardware choices to import from config_sensor.txt
 CONNECTED_SENSOR_TYPE = None
@@ -77,6 +86,7 @@ else:
     print('No known sensor defined. Correct that and restart the program')
     print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
+if DEBUG_MES_EXEC_IME: mes.time_step('sensor import')
     
 # sensor pins and init
 BM_SDA_PIN = 21
@@ -105,6 +115,7 @@ else:
     print('No known microcontroler defined. Correct that and restart the program')
     print('Possibilities are TTGO, WEMOS ot NODE')
     exit()
+if DEBUG_MES_EXEC_IME: mes.time_step('uC config')
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -117,6 +128,7 @@ ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibra
 ubatt.width(ADC.WIDTH_12BIT)
 # set attenuation
 ubatt.atten(ADC.ATTN_6DB)
+if DEBUG_MES_EXEC_IME: mes.time_step('analog config')
 
 # IRQ constants
 _IRQ_PERIPHERAL_CONNECT = const(7)
@@ -133,7 +145,6 @@ class BleJmbSensor:
         self._ble.active(True)
         self._ble.irq(self._irq)
         self._reset()
-        self._irq_list = []
 
     def _reset(self):
         # Cached name and address from a successful scan.
@@ -152,8 +163,6 @@ class BleJmbSensor:
         self._irq_service_done = False
         
     def _irq(self, event, data):
-        self._irq_list.append(event)
-        
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
             # Connect successful.
@@ -167,7 +176,7 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                log_error('Central is not running')
+                log.log_error('Central is not running')
                 reset()
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
@@ -176,20 +185,8 @@ class BleJmbSensor:
         elif event == _IRQ_GATTC_WRITE_DONE: #17
             self._irq_write_done = True
 
-
-    def bytes_to_asc(self, v_bytes):
-        return hexlify(bytes(v_bytes)).decode('utf-8')
-
     def asc_to_bytes(self, v_ascii):
         return unhexlify((v_ascii))
-                
-    def config_write_conn_info(self, data):
-        with open ('config_uart.txt', 'w') as f:
-            for d in data:
-                if type(d) == int:
-                    f.write(str(d) + '\n')
-                else:
-                    f.write(d + '\n')
 
     def config_read_conn_info(self):
         with open ('config_uart.txt', 'r') as f:
@@ -222,105 +219,14 @@ class BleJmbSensor:
         try:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
-            get_and_increase_error_counter()
-            get_and_log_error_info(e, i)
+            log.counters('error', True) # increment error counter
+            log.get_and_log_error_info(e, i)
             reset()
-
-class exec_time_mes:
-    
-    def __init__(self):
-        self._start_time = None
-        self._old_time = None
-        self._time_list = []
-        self._string_len = 25
-
-    def time_step(self, stage):
-        if stage == 'start':
-            self._start_time = ticks_ms()
-        elif stage == 'stop':
-            total_time = ticks_ms() - self._start_time
-            with open ('process_mes.txt', 'w') as f:
-                old_time = self._start_time
-                for line in self._time_list:
-                    step_name,value = line.split(':')
-                    step_name += ' '*(self._string_len-len(step_name))
-                    step_time = '{:.0f}'.format(float(value) - old_time)
-                    old_time = float(value)
-                    f.write(step_name + ': ' + step_time + ' ms\n')
-                f.write('-'*(self._string_len + 10) + '\n')
-                step_name = 'total execution time'
-                f.write(step_name + ' '*(self._string_len-len(step_name)) + ': ' + str(total_time) + ' ms\n')
-        else:
-            self._time_list.append(stage + ':' + str(ticks_ms()))
-            self._old_time = ticks_ms()
-
-
-def get_and_log_error_info(err_info, i):
-    s = StringIO()
-    print_exception(err_info, s)
-    s1 = s.getvalue().replace('\n', '=+=')
-    s2 = s1.split('=+=')
-    s3 = s2[1].lstrip()
-    s4 = s2[2].lstrip()
-    
-    # write and print the error message
-    msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
-    log_error(msg)
-    
-def log_error(msg):
-    # error logging
-    try:
-        with open ('error.txt', 'a') as f:
-            f.write(str(msg) + '\n')
-    except:
-        with open ('error.txt', 'w') as f:
-            f.write(str(msg) + '\n')
-
-
-def time_mesurement(process_info, t_old):
-    t = ticks_ms() - t_old
-    with open ('process_mes.txt', 'a') as f:
-        if process_info == 'total':
-            f.write('---------------\n')
-        f.write(process_info + ' ---> ' + str(t) + '\n')
-            
-def get_and_increase_pass_counter():
-    # load the pass counter value from file
-    try:
-        with open ('index.txt', 'r') as f:
-            i = int(f.readline()) + 1
-    except:
-        i = 1
-    with open ('index.txt', 'w') as f:
-        f.write(str(i))
-    return i
-            
-def get_and_increase_error_counter():
-    # load the pass counter value from file
-    try:
-        with open ('err_count.txt', 'r') as f:
-            i = int(f.readline()) + 1
-    except:
-        i = 1
-    with open ('err_count.txt', 'w') as f:
-        f.write(str(i))
-    return i
-            
-def get_error_counter():
-    # load the pass counter value from file
-    try:
-        with open ('err_count.txt', 'r') as f:
-            i = int(f.readline())
-    except:
-        i = 1
-    return i
         
 def main():
-    try:
-        start_time = ticks_ms()
-        mes = exec_time_mes()
-        if DEBUG_MES_EXEC_IME: mes.time_step('start')
-        i = get_and_increase_pass_counter()
+#     try:
+        if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
+        i = log.counters('passe', True)
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
@@ -352,10 +258,10 @@ def main():
             gas = 0
             
         if CONNECTED_SENSOR_TYPE == 'NO_SENSOR':
-            temp = 20.3
-            hum = 50.5
-            pres = 950
-            bat = 4.05
+            temp = 22.2
+            hum = 55.5
+            pres = 999
+            bat = 4.44
         else:
             temp = float(bmeX.temperature)
             hum = float(bmeX.humidity)
@@ -386,21 +292,18 @@ def main():
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
-        print('pass:', i, '- error count:', get_error_counter(),'-->',  str((ticks_ms() - elapsed)/1000) + 's', )
-        print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
+        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 1000)
+        print('pass:', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
+        print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')
-#         print('irq_list:', sensor._irq_list)
         if DEBUG_MES_EXEC_IME: mes.time_step('stop')
-        deepsleep(T_DEEPSLEEP_MS - elapsed)
+        deepsleep(t_deepsleep)
         
-    except Exception as e:
-        # manage the pass counter
-        get_and_increase_error_counter()
-        # make the error message
-        get_and_log_error_info(e, i)
-        # restart the machine
-        sleep_ms(2000)
-        reset()
+#     except Exception as e:
+#         log.counters('error', True)
+#         log.get_and_log_error_info(e, i)
+#         sleep_ms(2000)
+#         reset()
 
 if __name__ == "__main__":
     main()
