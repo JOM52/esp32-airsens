@@ -41,15 +41,18 @@ if DEBUG_MES_EXEC_IME: mes.time_step('start')
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
-from sys import exit, print_exception
+from sys import exit#, print_exception
 from micropython import const
-from uio import StringIO
+# from uio import StringIO
 from random import uniform
 if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
 from lib.encode_decode import encode_msg
+from lib.log_and_count import LogAndCount
+log = LogAndCount()
+
 if DEBUG_MES_EXEC_IME: mes.time_step('lib import')
 
 
@@ -68,7 +71,6 @@ with open('config_sensor.txt', 'r') as f:
         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
-if DEBUG_MES_EXEC_IME: mes.time_step('sensor config read file')
         
 # todo --- a tester ----------------------------
 # T_DEEPSLEEP_MS += uniform(-500, 500)
@@ -143,7 +145,6 @@ class BleJmbSensor:
         self._ble.active(True)
         self._ble.irq(self._irq)
         self._reset()
-        self._irq_list = []
 
     def _reset(self):
         # Cached name and address from a successful scan.
@@ -162,8 +163,6 @@ class BleJmbSensor:
         self._irq_service_done = False
         
     def _irq(self, event, data):
-        self._irq_list.append(event)
-        
         if event == _IRQ_PERIPHERAL_CONNECT: #7
             conn_handle, addr_type, addr = data
             # Connect successful.
@@ -177,7 +176,7 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                log_error('Central is not running')
+                log.log_error('Central is not running')
                 reset()
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
@@ -186,20 +185,8 @@ class BleJmbSensor:
         elif event == _IRQ_GATTC_WRITE_DONE: #17
             self._irq_write_done = True
 
-
-    def bytes_to_asc(self, v_bytes):
-        return hexlify(bytes(v_bytes)).decode('utf-8')
-
     def asc_to_bytes(self, v_ascii):
         return unhexlify((v_ascii))
-                
-    def config_write_conn_info(self, data):
-        with open ('config_uart.txt', 'w') as f:
-            for d in data:
-                if type(d) == int:
-                    f.write(str(d) + '\n')
-                else:
-                    f.write(d + '\n')
 
     def config_read_conn_info(self):
         with open ('config_uart.txt', 'r') as f:
@@ -232,78 +219,14 @@ class BleJmbSensor:
         try:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
-            get_and_increase_error_counter()
-            get_and_log_error_info(e, i)
+            log.counters('error', True) # increment error counter
+            log.get_and_log_error_info(e, i)
             reset()
-
-
-
-def get_and_log_error_info(err_info, i):
-    s = StringIO()
-    print_exception(err_info, s)
-    s1 = s.getvalue().replace('\n', '=+=')
-    s2 = s1.split('=+=')
-    s3 = s2[1].lstrip()
-    s4 = s2[2].lstrip()
-    
-    # write and print the error message
-    msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
-    log_error(msg)
-    
-def log_error(msg):
-    # error logging
-    try:
-        with open ('error.txt', 'a') as f:
-            f.write(str(msg) + '\n')
-    except:
-        with open ('error.txt', 'w') as f:
-            f.write(str(msg) + '\n')
-
-
-def time_mesurement(process_info, t_old):
-    t = ticks_ms() - t_old
-    with open ('process_mes.txt', 'a') as f:
-        if process_info == 'total':
-            f.write('---------------\n')
-        f.write(process_info + ' ---> ' + str(t) + '\n')
-            
-def get_and_increase_pass_counter():
-    # load the pass counter value from file
-    try:
-        with open ('index.txt', 'r') as f:
-            i = int(f.readline()) + 1
-    except:
-        i = 1
-    with open ('index.txt', 'w') as f:
-        f.write(str(i))
-    return i
-            
-def get_and_increase_error_counter():
-    # load the pass counter value from file
-    try:
-        with open ('err_count.txt', 'r') as f:
-            i = int(f.readline()) + 1
-    except:
-        i = 1
-    with open ('err_count.txt', 'w') as f:
-        f.write(str(i))
-    return i
-            
-def get_error_counter():
-    # load the pass counter value from file
-    try:
-        with open ('err_count.txt', 'r') as f:
-            i = int(f.readline())
-    except:
-        i = 1
-    return i
         
 def main():
-    try:
-#         start_time = ticks_ms()
-#         mes = exec_time_mes()
+#     try:
         if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
-        i = get_and_increase_pass_counter()
+        i = log.counters('passe', True)
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
@@ -369,21 +292,18 @@ def main():
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
-        print('pass:', i, '- error count:', get_error_counter(),'-->',  str(elapsed) + 'ms', )
-        print('going to deepsleep for: ' + str(int((T_DEEPSLEEP_MS - elapsed))) + ' ms')
+        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 1000)
+        print('pass:', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
+        print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')
-#         print('irq_list:', sensor._irq_list)
         if DEBUG_MES_EXEC_IME: mes.time_step('stop')
-        deepsleep(T_DEEPSLEEP_MS - elapsed)
+        deepsleep(t_deepsleep)
         
-    except Exception as e:
-        # manage the pass counter
-        get_and_increase_error_counter()
-        # make the error message
-        get_and_log_error_info(e, i)
-        # restart the machine
-        sleep_ms(2000)
-        reset()
+#     except Exception as e:
+#         log.counters('error', True)
+#         log.get_and_log_error_info(e, i)
+#         sleep_ms(2000)
+#         reset()
 
 if __name__ == "__main__":
     main()
