@@ -11,9 +11,10 @@ github: https://github.com/jom52/esp32-airsens
 the *central* is always in listening mode (advertising).
 It accepts the connections of the sensors, receives the data and then transmits them to MQTT by WIFI.
 
-v1.0 : 07.01.2022 --> first prototype
-v1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
-v1.3 : 22.01.2022 --> message is now coded (added module lib.encode_decode.py)
+v0.1.0 : 07.01.2022 --> first prototype
+v0.1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
+v0.1.3 : 22.01.2022 --> message is now coded (added module lib.encode_decode.py)
+v0.1.4 : 28.01.2022 --> new message without gas measurement
 """
 
 from machine import Pin, Timer, SoftI2C
@@ -21,7 +22,7 @@ from utime import sleep_ms
 import ubluetooth
 from lib.encode_decode import decode_msg
 
-CENTRAL_NAME = "jmb_airsens_ttgo_02"
+CENTRAL_NAME = "jmb_airsens_node_00"
 ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
@@ -81,20 +82,12 @@ class BLE():
 #             print(buffer)
             message = buffer.decode('UTF-8').strip()
             if message[:3] == 'jmb':
-                jmb_id, piece, temp, hum, pres, gas, bat = decode_msg(message)
+                jmb_id, piece, temp, hum, pres, bat = decode_msg(message)
                 print(jmb_id + '-' + piece
                       + ' --> temp: ' + str(temp)
                       + ' --> hum: ' + str(hum)
                       + ' --> pres: ' + str(pres)
-                      + ' --> gas: ' + str(gas)
                       + ' --> bat: ' + str(bat))
-
-#                 print('--> temp: ' + str(temp))
-#                 print('--> hum: ' + str(hum))
-#                 print('--> pres: ' + str(pres))
-#                 print('--> gas: ' + str(gas))
-#                 print('--> bat: ' + str(bat))
-#                 print('--------------')
 
     # Nordic UART Service (NUS)       
     def register(self):        
