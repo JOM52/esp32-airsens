@@ -10,20 +10,25 @@ github: https://github.com/jom52/esp32-airsens
 
 log errors and manage counters
 v0.1.0 : 27.01.2022 --> first prototype
+v0.1.1 : 31.01.2022 --> get_and_log_error_info added logic for simple str messages
 """
 from uio import StringIO
-from sys import print_exception
+from sys import print_exception 
+
 class LogAndCount:
-    def get_and_log_error_info(self, err_info, i):
-        s = StringIO()
-        print_exception(err_info, s)
-        s1 = s.getvalue().replace('\n', '=+=')
-        s2 = s1.split('=+=')
-        s3 = s2[1].lstrip()
-        s4 = s2[2].lstrip()
-        
-        # write and print the error message
-        msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
+    def get_and_log_error_info(self, err_info, i=0):
+        if isinstance(err_info, list): 
+            s = StringIO()
+            print_exception(err_info, s)
+            s1 = s.getvalue().replace('\n', '=+=')
+            s2 = s1.split('=+=')
+            s3 = s2[1].lstrip()
+            s4 = s2[2].lstrip()
+            # write and print the error message
+            msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
+        else:
+            msg = ('pass:' + str(i) + ' --> ' + err_info)
+            
         self.log_error(msg)
         
     def log_error(self, msg):

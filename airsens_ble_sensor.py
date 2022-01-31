@@ -30,6 +30,7 @@ v0.1.14 : 24.01.2022 --> T_WAIT_FOR_IRQ_TERMINATED_MS removed
 v0.1.15 : 26.01.2022 --> error management impoved
 v0.1.16 : 27.01.2022 --> mgmt of central not running error
 v0.1.17 : 27.01.2022 --> added execution time mesurment
+v0.1.18 : 31.01.2022 --> added crc management for transmission errors
 """
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -49,7 +50,7 @@ if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
 from lib.ble_advertising import decode_services, decode_name
-from lib.encode_decode import encode_msg
+from lib.encode_decode import encode_msg, crc
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
@@ -222,7 +223,7 @@ class BleJmbSensor:
             log.counters('error', True) # increment error counter
             log.get_and_log_error_info(e, i)
             reset()
-        
+    
 def main():
 #     try:
         if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
@@ -270,6 +271,9 @@ def main():
         if DEBUG_MES_EXEC_IME: mes.time_step('sensor config')
             
         msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
+        crc_val = crc(msg)
+        msg += crc_val
+        
         #connect to the central
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
@@ -282,7 +286,7 @@ def main():
         if DEBUG_MES_EXEC_IME: mes.time_step('message write')
         
         print()
-        print('jmb_' + str(SENSOR_ID) + ' --> ' + msg)
+        print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val)
         
         # disconnect from the central
         sensor.disconnect()
