@@ -269,7 +269,7 @@ def main():
             bat = float(ubatt.voltage/1000)
         if DEBUG_MES_EXEC_IME: mes.time_step('sensor config')
             
-        msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, gas, bat)
+        msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
         #connect to the central
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
