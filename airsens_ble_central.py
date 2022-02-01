@@ -157,12 +157,9 @@ class BLE():
 def main():
     
     print('-----------------------------------------------------------')
-#     client = connect_and_subscribe(CLIENT_ID, MQTT_BROKER, TOPIC_PUB)
-#     print('MQTT client connected on ' + MQTT_BROKER + ' with the topic ' + TOPIC_PUB)
-#     
-
     my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
     my_wifi.connect_wifi()
+    
     my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
     my_rtc.rtc_init()  # initialize the rtc with local date and time
     now = my_rtc.rtc_now()  # get date and time
@@ -170,9 +167,11 @@ def main():
     msg = "now date and time :" + datetime_formated + '\n'
     my_rtc = None
     print(msg)
-    print('-----------------------------------------------------------')
     print('central listening as <' + CENTRAL_NAME + '>')
+    print('-----------------------------------------------------------')
+    
     blue_led = Pin(2, Pin.OUT)
+    
     ble = BLE(CENTRAL_NAME)
 
 if __name__ == '__main__':
