@@ -33,8 +33,8 @@ from lib import rtc_esp32
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
-CENTRAL_NAME = "jmb_airsens_ttgo_01"
-ADVERTISE_INTERVAL = 100 # org value = 100
+CENTRAL_NAME = "jmb_airsens_ttgo_02"
+ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
@@ -118,7 +118,8 @@ class BLE():
                               + ' --> hum: ' + str(hum)
                               + ' --> pres: ' + str(pres)
                               + ' --> bat: ' + str(bat)
-                              + ' --> crc: ' + str(calc_crc))
+                              + ' --> crc: ' + str(calc_crc)
+                              + ' --> errors: ' + str(log.counters('error')))
                     else:
                         err_no = log.counters('error', True)
                         log.get_and_log_error_info('Transmission error: bad CRC', err_no)                    

@@ -26,8 +26,10 @@ class LogAndCount:
             s4 = s2[2].lstrip()
             # write and print the error message
             msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
+        elif isinstance(err_info, str):
+            msg = ('pass:' + str(i) + ' --> ' + str(err_info))
         else:
-            msg = ('pass:' + str(i) + ' --> ' + err_info)
+            msg = ('pass:' + str(i) + ' --> ' + str(err_info))
             
         self.log_error(msg)
         
