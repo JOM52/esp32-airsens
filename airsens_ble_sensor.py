@@ -32,6 +32,7 @@ v0.1.16 : 27.01.2022 --> mgmt of central not running error
 v0.1.17 : 27.01.2022 --> added execution time mesurment
 v0.1.18 : 31.01.2022 --> added crc management for transmission errors
 v0.1.19 : 02.02.2022 --> modified the deepsleep time calculation
+v0.1.20 : 02.02.2022 --> some lib files modified into class
 """
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -50,10 +51,13 @@ from random import uniform
 if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
-from lib.ble_advertising import decode_services, decode_name
-from lib.encode_decode import encode_msg, crc
+from lib.encode_decode import EncodeDecode
+encode_decode = EncodeDecode()
+# from lib.encode_decode import encode_msg, crc
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
+from lib.blink import Blink
+blink = Blink(2)
 
 if DEBUG_MES_EXEC_IME: mes.time_step('lib import')
 
@@ -271,8 +275,8 @@ def main():
             bat = float(ubatt.voltage/1000)
         if DEBUG_MES_EXEC_IME: mes.time_step('sensor config')
             
-        msg = encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
-        crc_val = crc(msg)
+        msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
+        crc_val = encode_decode.get_crc(msg)
         msg += crc_val
         
         #connect to the central
@@ -282,6 +286,7 @@ def main():
         if DEBUG_MES_EXEC_IME: mes.time_step('central connect')
         
         sensor.write(msg, i)
+        blink.blink_internal_blue_led(100, 100, 100, 3)
         while  not sensor._irq_write_done:
             pass
         if DEBUG_MES_EXEC_IME: mes.time_step('message write')
