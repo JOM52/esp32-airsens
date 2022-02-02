@@ -31,6 +31,7 @@ v0.1.15 : 26.01.2022 --> error management impoved
 v0.1.16 : 27.01.2022 --> mgmt of central not running error
 v0.1.17 : 27.01.2022 --> added execution time mesurment
 v0.1.18 : 31.01.2022 --> added crc management for transmission errors
+v0.1.19 : 02.02.2022 --> modified the deepsleep time calculation
 """
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -221,11 +222,11 @@ class BleJmbSensor:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
             log.counters('error', True) # increment error counter
-            log.get_and_log_error_info(e, i)
+            log.get_and_log_error_info('Write on BLE UART error: ' + str(e), i)
             reset()
     
 def main():
-#     try:
+    try:
         if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
         i = log.counters('passe', True)
 
@@ -296,18 +297,18 @@ def main():
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
-        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 1000)
+        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 100)
         print('pass:', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
         print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')
         if DEBUG_MES_EXEC_IME: mes.time_step('stop')
         deepsleep(t_deepsleep)
         
-#     except Exception as e:
-#         log.counters('error', True)
-#         log.get_and_log_error_info(e, i)
-#         sleep_ms(2000)
-#         reset()
+    except Exception as e:
+        log.counters('error', True)
+        log.get_and_log_error_info(e, i)
+        sleep_ms(2000)
+        reset()
 
 if __name__ == "__main__":
     main()

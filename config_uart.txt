@@ -1,8 +1,8 @@
 addr_type:0
-addr:3c61050ce72a
+addr:3c61050d67ce
 adv_type:0
-rssi:-70
-name:jmb_airsens_ttgo_02
+rssi:-88
+name:jmb_airsens_ttgo_01
 conn_handle:0
 start_handle:19
 end_handle:65535
