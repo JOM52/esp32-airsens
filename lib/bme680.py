@@ -256,13 +256,9 @@ if __name__ == '__main__':
     
     from machine import Pin, SoftI2C
     from time import sleep
-#     from lib.bme680 import *
 
     # ESP32 - Pin assignment
     i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
-    # ESP8266 - Pin assignment
-    #i2c = I2C(scl=Pin(5), sda=Pin(4))
-
     bme = BME680_I2C(i2c=i2c)
 
     while True:

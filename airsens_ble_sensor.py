@@ -302,7 +302,7 @@ def main():
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
-        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 100)
+        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
         print('pass:', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
         print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')

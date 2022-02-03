@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-project : wifi_esp32.py
+project : airsens_ble.py
 ----------------------------
 Class to connect on WLAN
 

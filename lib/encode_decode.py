@@ -5,10 +5,11 @@
 file: encode_decode.py 
 
 author: jom52
+license : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
 email: jom52.dev@gmail.com
 github: https://github.com/jom52/esp32-airsens
 
-coding the values ina message of 20 char len
+coding the values in a string of 20 char len
 
 v0.1.0 : 07.01.2022 --> first prototype
 v0.1.1 : 29.01.2022 --> removed gas mesurement

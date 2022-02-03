@@ -5,6 +5,7 @@
 file: log_and_count.py 
 
 author: jom52
+license : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
 email: jom52.dev@gmail.com
 github: https://github.com/jom52/esp32-airsens
 

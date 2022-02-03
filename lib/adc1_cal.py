@@ -245,20 +245,12 @@ class ADC1Cal(machine.ADC):
             raw_val += self.read()
         # Calculate average
         raw_val = int(round(raw_val / self._samples))
-#         print(raw_val)
         
         # Extend result to 12 bits (required by calibration function)
         raw_val <<= (3 - self._width)
-#         print('raw_val=',raw_val)
-#         print('_coeff_a=', self._coeff_a)
-#         print('_coeff_b=', self._coeff_b)
-#         print('_LIN_COEFF_A_ROUND=', _LIN_COEFF_A_ROUND)
-#         print('_LIN_COEFF_A_SCALE=', _LIN_COEFF_A_SCALE)
         
         # Apply calibration function
         voltage = (((self._coeff_a * raw_val) + _LIN_COEFF_A_ROUND) / _LIN_COEFF_A_SCALE) + self._coeff_b
-#         print(voltage*133/33)
-#         print()
         
         # Apply external input voltage divider
         voltage = voltage / self._div
@@ -286,7 +278,6 @@ from machine import Pin
 if __name__ == "__main__":
     ADC_PIN   = 35                # ADC input pin no.
     VREF      = 1065              # V_ref in mV (device specific value -> espefuse.py --port <port> adc_info)
-#    DIV       = 100 / (100 + 200) # (R1 / R1 + R2) -> V_meas = V(R1 + R2); V_adc = V(R1)  
     DIV       = 1
     AVERAGING = 10                # no. of samples for averaging
     

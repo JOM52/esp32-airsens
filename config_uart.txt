@@ -1,9 +1,9 @@
 addr_type:0
 addr:3c61050d67ce
 adv_type:0
-rssi:-88
-name:jmb_airsens_ttgo_01
-conn_handle:0
+rssi:-53
+name:jmb_airsens_ttgo_02
+conn_handle:1
 start_handle:19
 end_handle:65535
 tx_handle:21

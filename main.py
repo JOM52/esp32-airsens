@@ -1,2 +1,2 @@
-import airsens_ble_central
-airsens_ble_central.main()
+import airsens_ble_sensor
+airsens_ble_sensor.main()

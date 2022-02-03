@@ -1,3 +1,5 @@
+# Original source: https://github.com/RuiSantosdotme/ESP-MicroPython/blob/master/code/WiFi/HTTP_Client_IFTTT_BME280/BME280.py
+
 from machine import I2C 
 import time
 import math
