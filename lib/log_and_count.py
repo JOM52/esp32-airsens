@@ -20,7 +20,10 @@ from uio import StringIO
 from sys import print_exception 
 
 class LogAndCount:
-    def get_and_log_error_info(self, err_info, i=0):
+    def get_and_log_error_info(self, err_info, passe=0, more_info=''):
+        cpl = more_info
+        if more_info:
+            cpl = ' - ' + more_info
         if isinstance(err_info, list): 
             s = StringIO()
             print_exception(err_info, s)
@@ -29,11 +32,11 @@ class LogAndCount:
             s3 = s2[1].lstrip()
             s4 = s2[2].lstrip()
             # write and print the error message
-            msg = ('pass:' + str(i) + ' --> ' + s3 + ' - ' + s4)
+            msg = ('pass:' + str(passe) + ' --> ' + s3 + ' - ' + s4 + cpl)
         elif isinstance(err_info, str):
-            msg = ('pass:' + str(i) + ' --> ' + str(err_info))
+            msg = ('pass:' + str(passe) + ' --> ' + err_info + cpl)
         else:
-            msg = ('pass:' + str(i) + ' --> ' + str(err_info))
+            msg = ('pass:' + str(passe) + ' --> ' + str(err_info) + cpl)
             
         self.log_error(msg)
         
