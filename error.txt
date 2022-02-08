@@ -1,0 +1,13 @@
+pass:6 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:38 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:40 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:44 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:48 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:61 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:65 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:78 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:79 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:85 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:89 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:99 --> Write on BLE UART error: [Errno 107] ENOTCONN
+pass:102 --> Write on BLE UART error: [Errno 107] ENOTCONN
