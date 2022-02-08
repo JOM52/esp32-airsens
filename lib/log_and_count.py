@@ -15,6 +15,7 @@ v0.1.1 : 31.01.2022 --> get_and_log_error_info added logic for simple str messag
 v0.1.2 : 01.02.2022 --> added automatic management of the counters (if necessary creaate file and new counter)
 v0.1.3 : 02.02.2022 --> corection on the function couters
 v0.1.4 : 02.02.2022 --> correction on the function log error
+v0.1.5 : 05.02.2022 --> modified log and count to log the count of the same error
 """
 from uio import StringIO
 from sys import print_exception 
@@ -24,7 +25,7 @@ class LogAndCount:
         cpl = more_info
         if more_info:
             cpl = ' - ' + more_info
-        if isinstance(err_info, list): 
+        if isinstance(err_info, list):  
             s = StringIO()
             print_exception(err_info, s)
             s1 = s.getvalue().replace('\n', '=+=')
@@ -32,26 +33,45 @@ class LogAndCount:
             s3 = s2[1].lstrip()
             s4 = s2[2].lstrip()
             # write and print the error message
-            msg = ('pass:' + str(passe) + ' --> ' + s3 + ' - ' + s4 + cpl)
+            msg = ('passe ' + str(passe) + ':' + s3 + ' - ' + s4 + cpl)
         elif isinstance(err_info, str):
-            msg = ('pass:' + str(passe) + ' --> ' + err_info + cpl)
+            msg = ('passe ' + str(passe) + ':' + err_info + cpl)
         else:
-            msg = ('pass:' + str(passe) + ' --> ' + str(err_info) + cpl)
+            msg = ('passe ' + str(passe) + ':' + str(err_info) + cpl)
             
         self.log_error(msg)
         
     def log_error(self, msg):
         # error logging
+        f_name = 'error.txt'
+        # test if file exist ans wen yes read it
         try:
-            with open ('error.txt', 'a') as f:
-                f.write(str(msg) + '\n')
+            with open (f_name, 'r') as f:
+                lines = f.readlines()
+                f_exist = True
         except:
-            with open ('error.txt', 'w') as f:
-                f.write(str(msg) + '\n')
+            f_exist = False
+            
+        if f_exist:
+            # if file exist
+            with open (f_name, 'w') as f:
+                e_count = 0
+                for line in lines:
+                    ls = line.split(':')
+                    # check if msg exist in the file
+                    if ls[1] == msg.split(':')[1]:
+                        # wen msg exist in the file increment the counter
+                        e_count = int(line.split(':')[2]) + 1
+                        line = ''.join([ls[0], ':', ls[1], ':', str(e_count)])
+                    # save the file
+                    f.write(line)
+        else:
+            # the file dosent exist so create it ans set the counter to one
+            with open (f_name, 'a') as f:
+                f.write(str(msg) + ':1\n')
 
     def counters(self, counter_name, add1=False):
         increment = 1 if add1 else 0
-#         print(increment)
         try: # test if the file exist, if yes read the data's
             with open ('counter.txt', 'r') as f:
                 lines = f.readlines()

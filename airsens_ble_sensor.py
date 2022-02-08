@@ -33,6 +33,7 @@ v0.1.17 : 27.01.2022 --> added execution time mesurment
 v0.1.18 : 31.01.2022 --> added crc management for transmission errors
 v0.1.19 : 02.02.2022 --> modified the deepsleep time calculation
 v0.1.20 : 02.02.2022 --> some lib files modified into class
+v0.1.21 : 04.02.2022 --> adapted fog log error with numer of occurences
 """
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -182,7 +183,7 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                log.log_error('Central is not running')
+                log.log_error('Central is not running:0')
                 reset()
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
@@ -226,13 +227,13 @@ class BleJmbSensor:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
             log.counters('error', True) # increment error counter
-            log.get_and_log_error_info('Write on BLE UART error: ' + str(e), i)
+            log.get_and_log_error_info('Write on BLE UART error ' + str(e), i)
             reset()
     
 def main():
     try:
-        if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
         i = log.counters('passe', True)
+        if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
@@ -303,7 +304,7 @@ def main():
         # finishing tasks
         elapsed = ticks_ms() - start_time
         t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
-        print('pass:', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
+        print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
         print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')
         if DEBUG_MES_EXEC_IME: mes.time_step('stop')
