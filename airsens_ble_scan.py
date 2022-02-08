@@ -18,6 +18,7 @@ v0.1.0 : 07.01.2022 --> first prototype
 v0.1.1 : 16.01.2022 --> added all info about central in config_uart.txt (git branch: sensor_test)
 v0.1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
 v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
+v0.1.4 : 08.02.2022 --> improved the user's selection
 """
 
 import ubluetooth
@@ -216,7 +217,7 @@ def main():
     for nb, c in enumerate(ble_scan._central_list):
         connect_status = ble_scan.connect(c[0], c[1])
         while not connect_status:# and not sensor._gattc_service_timeout:
-            print('----> waiting for connection --> timeaout status =', sensor._gattc_service_timeout)
+            print('----> waiting for connection --> timeout status =', sensor._gattc_service_timeout)
             utime.sleep_ms(T_WAIT_FOR_IRQ_TERMINATED_MS)
             connect_status = ble_scan.connect(sensor._addr_type, sensor._addr)
         while not ble_scan._gattc_characteristic_done:
@@ -237,7 +238,7 @@ def main():
             nearest_level = rssi
             nearest_index = nb
     
-    # displa the list of central servers
+    # display the list of central servers
     nb = len(ble_scan._central_list)
     v_choice = 0
     if nb > 0:
@@ -247,18 +248,25 @@ def main():
                 for j in range(nb-1):
                     if ble_scan._central_list[i][3] > ble_scan._central_list[j][3]:
                         ble_scan._central_list[i], ble_scan._central_list[j] = ble_scan._central_list[j], ble_scan._central_list[i]
-        print('-------------------------------------------------------')
-        for nb, c in enumerate(ble_scan._central_list):
-            # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
-            msg = str(nb) + ' --> ' + c[4] + ' - ' + ble_scan.bytes_to_asc(c[1]) + ' - ' + 'rssi:' + str(c[3])
-            print(msg)
-        print('-------------------------------------------------------')
+        # display the list
+        if nb > 1:
+            print('-------------------------------------------------------')
+            for nb, c in enumerate(ble_scan._central_list):
+                # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
+                msg = str(nb) + ' --> ' + c[4] + ' - ' + ble_scan.bytes_to_asc(c[1]) + ' - ' + 'rssi:' + str(c[3])
+                print(msg)
+            print('-------------------------------------------------------')
     
-        # ask for client central choice
-        print('\nTo witch central one do you want to connect ?')
-        v_choice = int(input('Enter the central number (best choice=' +
-                       str(nearest_index) + ' - rssi:' + str(nearest_level) + ':')
-                       or str(nearest_index))
+        # if more than 1 ask the user choice
+        if nb > 1:
+            # ask for client central choice
+            print('\nTo witch central one do you want to connect ?')
+            v_choice = int(input('Enter the central number (best choice=' +
+                           str(nearest_index) + ' - rssi:' + str(nearest_level) + ':')
+                           or str(nearest_index))
+        else:
+            v_choice = 0
+        # record the user choice in the file
         if v_choice >= 0 and v_choice <= nb:
             # writing the choice in the config_uart.txt file
             config_txt = 'addr_type:' + str(ble_scan._central_list[v_choice][0]) + '\n'

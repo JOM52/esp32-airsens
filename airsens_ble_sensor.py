@@ -33,14 +33,21 @@ v0.1.17 : 27.01.2022 --> added execution time mesurment
 v0.1.18 : 31.01.2022 --> added crc management for transmission errors
 v0.1.19 : 02.02.2022 --> modified the deepsleep time calculation
 v0.1.20 : 02.02.2022 --> some lib files modified into class
-v0.1.21 : 04.02.2022 --> adapted fog log error with numer of occurences
+v0.1.21 : 04.02.2022 --> adapted for log error with numer of occurences
+v0.1.22 : 08.02.2022 --> integed all count in the file counter (no kore file error.txt)
+v0.1.23 : 08.02.2022 --> impoved the loading of libraries
 """
+import esp
+esp.osdebug(0) # alternative à 0 : None
+
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
-from lib.exec_time_mes import exec_time_mes
-DEBUG_MES_EXEC_IME = True
-mes = exec_time_mes()
-if DEBUG_MES_EXEC_IME: mes.time_step('start')
+
+DEBUG_MES_EXEC_TIME = False
+if DEBUG_MES_EXEC_TIME:
+    from lib.exec_time_mes import exec_time_mes
+    mes = exec_time_mes()
+    mes.time_step('start')
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
@@ -49,18 +56,22 @@ from sys import exit#, print_exception
 from micropython import const
 # from uio import StringIO
 from random import uniform
-if DEBUG_MES_EXEC_IME: mes.time_step('standard import')
+if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
+if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ADC1Cal')
+
 from lib.encode_decode import EncodeDecode
 encode_decode = EncodeDecode()
-# from lib.encode_decode import encode_msg, crc
+if DEBUG_MES_EXEC_TIME: mes.time_step('lib import EncodeDecode')
+
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
+if DEBUG_MES_EXEC_TIME: mes.time_step('lib import LogAndCount')
+
 from lib.blink import Blink
 blink = Blink(2)
-
-if DEBUG_MES_EXEC_IME: mes.time_step('lib import')
+if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
 
 
 # Hardware choices to import from config_sensor.txt
@@ -93,7 +104,7 @@ else:
     print('No known sensor defined. Correct that and restart the program')
     print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
-if DEBUG_MES_EXEC_IME: mes.time_step('sensor import')
+if DEBUG_MES_EXEC_TIME: mes.time_step('sensor import')
     
 # sensor pins and init
 BM_SDA_PIN = 21
@@ -122,7 +133,7 @@ else:
     print('No known microcontroler defined. Correct that and restart the program')
     print('Possibilities are TTGO, WEMOS ot NODE')
     exit()
-if DEBUG_MES_EXEC_IME: mes.time_step('uC config')
+if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -135,7 +146,7 @@ ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibra
 ubatt.width(ADC.WIDTH_12BIT)
 # set attenuation
 ubatt.atten(ADC.ATTN_6DB)
-if DEBUG_MES_EXEC_IME: mes.time_step('analog config')
+if DEBUG_MES_EXEC_TIME: mes.time_step('analog config')
 
 # IRQ constants
 _IRQ_PERIPHERAL_CONNECT = const(7)
@@ -183,7 +194,7 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                log.log_error('Central is not running:0')
+                log.log_error('Central is not running')
                 reset()
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
@@ -227,17 +238,17 @@ class BleJmbSensor:
             self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
         except Exception as e:
             log.counters('error', True) # increment error counter
-            log.get_and_log_error_info('Write on BLE UART error ' + str(e), i)
+            log.log_error('Write on BLE UART error ' + str(e))
             reset()
     
 def main():
     try:
         i = log.counters('passe', True)
-        if DEBUG_MES_EXEC_IME: mes.time_step('entering main')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
-        if DEBUG_MES_EXEC_IME: mes.time_step('I2C class initialise')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('I2C class initialise')
         try:
             if CONNECTED_SENSOR_TYPE == 'BME280':
                 bmeX = bmex80.BME280(i2c=i2c)
@@ -249,12 +260,12 @@ def main():
             print('Pas trouvé de ' + CONNECTED_SENSOR_TYPE + ' branché?')
             print('Corrigez et relancez le programme!')
             exit()
-        if DEBUG_MES_EXEC_IME: mes.time_step('sensor class initialise')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor class initialise')
         
         # instatiation of bluetooth.BLE
         ble = BLE()
         sensor = BleJmbSensor(ble)
-        if DEBUG_MES_EXEC_IME: mes.time_step('ble class initialise')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('ble class initialise')
         
         # read and initialise variable from config file
         sensor.config_read_conn_info()
@@ -274,7 +285,7 @@ def main():
             hum = float(bmeX.humidity)
             pres = float(bmeX.pressure)
             bat = float(ubatt.voltage/1000)
-        if DEBUG_MES_EXEC_IME: mes.time_step('sensor config')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor config')
             
         msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
         crc_val = encode_decode.get_crc(msg)
@@ -284,13 +295,13 @@ def main():
         sensor.connect(sensor._addr_type, sensor._addr)
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
             pass
-        if DEBUG_MES_EXEC_IME: mes.time_step('central connect')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('central connect')
         
         sensor.write(msg, i)
         blink.blink_internal_blue_led(100, 100, 100, 3)
         while  not sensor._irq_write_done:
             pass
-        if DEBUG_MES_EXEC_IME: mes.time_step('message write')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('message write')
         
         print()
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val)
@@ -299,7 +310,7 @@ def main():
         sensor.disconnect()
         while not sensor._irq_peripheral_disconnect:
             pass
-        if DEBUG_MES_EXEC_IME: mes.time_step('central disconnect')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('central disconnect')
 
         # finishing tasks
         elapsed = ticks_ms() - start_time
@@ -307,12 +318,12 @@ def main():
         print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
         print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
         print('==============================')
-        if DEBUG_MES_EXEC_IME: mes.time_step('stop')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
         deepsleep(t_deepsleep)
         
     except Exception as e:
         log.counters('error', True)
-        log.get_and_log_error_info(e, i)
+        log.log_error(e)
         sleep_ms(2000)
         reset()
 
