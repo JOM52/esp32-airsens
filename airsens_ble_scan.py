@@ -19,6 +19,7 @@ v0.1.1 : 16.01.2022 --> added all info about central in config_uart.txt (git bra
 v0.1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
 v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
 v0.1.4 : 08.02.2022 --> improved the user's selection
+v0.1.5 : 14.02.2022 --> error on user selection corrected
 """
 
 import ubluetooth
@@ -229,15 +230,6 @@ def main():
 
         ble_scan._reset()
     
-    # choose the one with the higher rssi
-    nearest_index = -1
-    nearest_level = -1000
-    for nb, c in enumerate(ble_scan._central_list):
-        rssi = c[3]
-        if rssi > nearest_level:
-            nearest_level = rssi
-            nearest_index = nb
-    
     # display the list of central servers
     nb = len(ble_scan._central_list)
     v_choice = 0
@@ -248,24 +240,37 @@ def main():
                 for j in range(nb-1):
                     if ble_scan._central_list[i][3] > ble_scan._central_list[j][3]:
                         ble_scan._central_list[i], ble_scan._central_list[j] = ble_scan._central_list[j], ble_scan._central_list[i]
+                        
+        # choose the one with the higher rssi
+        nearest_index = -1
+        nearest_level = -1000
+        for nx, c in enumerate(ble_scan._central_list):
+            rssi = int(c[3])
+            if rssi > nearest_level:
+                nearest_level = rssi
+                nearest_index = nx
+        
         # display the list
         if nb > 1:
             print('-------------------------------------------------------')
-            for nb, c in enumerate(ble_scan._central_list):
+            for nn, c in enumerate(ble_scan._central_list):
                 # [addr_type, bytes(addr), adv_type, rssi, decode_name(adv_data)]
-                msg = str(nb) + ' --> ' + c[4] + ' - ' + ble_scan.bytes_to_asc(c[1]) + ' - ' + 'rssi:' + str(c[3])
+                msg = (str(nn) + ' --> '
+                       + c[4] + ' - '
+                       + ble_scan.bytes_to_asc(c[1])
+                       + ' - ' + 'rssi:' + str(c[3]) + 'db')
                 print(msg)
             print('-------------------------------------------------------')
     
         # if more than 1 ask the user choice
+        v_choice = 0
         if nb > 1:
             # ask for client central choice
             print('\nTo witch central one do you want to connect ?')
             v_choice = int(input('Enter the central number (best choice=' +
-                           str(nearest_index) + ' - rssi:' + str(nearest_level) + ':')
+                           str(nearest_index) + ' - rssi:' + str(nearest_level) + 'db:')
                            or str(nearest_index))
-        else:
-            v_choice = 0
+        print(v_choice)
         # record the user choice in the file
         if v_choice >= 0 and v_choice <= nb:
             # writing the choice in the config_uart.txt file

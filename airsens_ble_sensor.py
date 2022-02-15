@@ -36,9 +36,12 @@ v0.1.20 : 02.02.2022 --> some lib files modified into class
 v0.1.21 : 04.02.2022 --> adapted for log error with numer of occurences
 v0.1.22 : 08.02.2022 --> integed all count in the file counter (no kore file error.txt)
 v0.1.23 : 08.02.2022 --> impoved the loading of libraries
+v0.1.24 : 14.02.2022 --> added WROOM uC
+v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 """
+VERSION = '0.1.25'
 import esp
-esp.osdebug(0) # alternative à 0 : None
+esp.osdebug("*", esp.LOG_DEBUG) 
 
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -128,10 +131,14 @@ elif MICROCONTROLER == 'NODE':
     BM_GND_PIN = 18
     BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
     BM_GND_PIN.off()
+elif MICROCONTROLER == 'WROOM':
+    BM_VCC_PIN = 23
+    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
+    BM_VCC_PIN.on()
 else:
     print('ERROR')
     print('No known microcontroler defined. Correct that and restart the program')
-    print('Possibilities are TTGO, WEMOS ot NODE')
+    print('Possibilities are TTGO, WEMOS, NODE or WROOM')
     exit()
 if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
 
@@ -146,6 +153,9 @@ ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibra
 ubatt.width(ADC.WIDTH_12BIT)
 # set attenuation
 ubatt.atten(ADC.ATTN_6DB)
+# battery
+UBAT_100 = 4.2
+UBAT_0 = 3.5
 if DEBUG_MES_EXEC_TIME: mes.time_step('analog config')
 
 # IRQ constants
@@ -312,14 +322,20 @@ def main():
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('central disconnect')
 
-        # finishing tasks
-        elapsed = ticks_ms() - start_time
-        t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
-        print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
-        print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
-        print('==============================')
-        if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
-        deepsleep(t_deepsleep)
+        # check the level of the battery
+        if bat > (0.98 * UBAT_0):
+            # finishing tasks
+            elapsed = ticks_ms() - start_time
+            t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
+            print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
+            print('going to deepsleep for: ' + str(t_deepsleep) + ' ms - soft V' + VERSION)
+            print('==============================')
+            if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
+            deepsleep(t_deepsleep)
+        else:
+            print('Endless deepsleep due to low battery')
+            if DEBUG_MES_EXEC_TIME: mes.time_step('endless deepsleep due to low battery')
+            deepsleep()
         
     except Exception as e:
         log.counters('error', True)

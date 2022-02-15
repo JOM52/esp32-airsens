@@ -17,6 +17,7 @@ v0.1.3 : 22.01.2022 --> message is now coded (added module lib.encode_decode.py)
 v0.1.4 : 28.01.2022 --> new message removed gas measurement
 v0.1.5 : 30.01.2022 --> wifi, rtc, mqtt impemented
 v0.1.6 : 31.01.2022 --> added crc management for transmission errors
+v0.1.7 : 14.02.2022 --> encode_decode in class form
 
 """
 
@@ -26,14 +27,15 @@ import ubluetooth
 import ubinascii
 import machine
 
-from lib.encode_decode import decode_msg, crc
+from lib.encode_decode import EncodeDecode
+enc_dec = EncodeDecode()
 from lib import wifi_esp32 as wifi
 from lib import umqttsimple2_jo as umqttsimple
 from lib import rtc_esp32
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
-CENTRAL_NAME = "jmb_airsens_ttgo_01"
+CENTRAL_NAME = "jmb_airsens_esp32-wroom-32"
 ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
@@ -96,7 +98,6 @@ class BLE():
                 '''Central disconnected'''
                 self.advertiser()
                 self.connected()
-    #             print(self.irq_list)
                 self.irq_list = []
             except Exception as err:
                 err_no = log.counters('error', True)
@@ -107,29 +108,28 @@ class BLE():
             try:
                 '''New message received'''
                 buffer = self.ble.gatts_read(self.rx)
-    #             print(buffer)
                 message = buffer.decode('UTF-8').strip()
                 if message[:3] == 'jmb':
                     passe = log.counters('passe', True)
                     now = self.my_rtc.rtc_now()  # get date and time
                     datetime_formated = self.my_rtc.format_datetime(now)
-                    jmb_id, piece, temp, hum, pres, bat, rx_crc = decode_msg(message)
-                    calc_crc = crc(message[:17])
+                    jmb_id, piece, temp, hum, pres, bat, rx_crc = enc_dec.decode_msg(message)
+                    calc_crc = enc_dec.get_crc(message[:17])
                     if rx_crc == calc_crc:
                         try:
                             client = self.connect_and_subscribe(CLIENT_ID, MQTT_BROKER, TOPIC_PUB)
                             client.publish(TOPIC_PUB, message)
                             client.disconnect()
-                            print(str(passe) + ' - '
-                                  + datetime_formated + ' - '
+                            print(str(passe) + '-'
+                                  + datetime_formated + '-'
                                   + jmb_id + '-'
                                   + piece
-                                  + ' --> temp: ' + str(temp)
-                                  + ' --> hum: ' + str(hum)
-                                  + ' --> pres: ' + str(pres)
-                                  + ' --> bat: ' + str(bat)
-                                  + ' --> crc: ' + str(calc_crc)
-                                  + ' --> errors: ' + str(log.counters('error')))
+                                  + ' - temp:' + str(temp)
+                                  + ' - hum:' + str(hum)
+                                  + ' - pres:' + str(pres)
+                                  + ' - bat:' + str(bat)
+                                  + ' - crc:' + str(calc_crc)
+                                  + ' - errors:' + str(log.counters('error')))
                         except Exception as err:
                             err_no = log.counters('error', True)
                             log.get_and_log_error_info(err, err_no, ' - MQTT publish')
@@ -140,7 +140,7 @@ class BLE():
                             
             except Exception as err:
                 err_no = log.counters('error', True)
-                log.get_and_log_error_info(err, err_no, ' - _IRQ_GATTS_WRITE')
+                log.log_error(err, ' - _IRQ_GATTS_WRITE')
                 print(err)
         
     def connect_and_subscribe(self, client_id, mqtt_broker, topic_pub):
@@ -171,17 +171,13 @@ class BLE():
 def main():
     
     print('-----------------------------------------------------------')
-#     client = connect_and_subscribe(CLIENT_ID, MQTT_BROKER, TOPIC_PUB)
-#     print('MQTT client connected on ' + MQTT_BROKER + ' with the topic ' + TOPIC_PUB)
-#     
-
     my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
     my_wifi.connect_wifi()
     my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
     my_rtc.rtc_init()  # initialize the rtc with local date and time
     now = my_rtc.rtc_now()  # get date and time
     datetime_formated = my_rtc.format_datetime(now)
-    msg = "now date and time :" + datetime_formated + '\n'
+    msg = "now date and time :" + datetime_formated
     my_rtc = None
     print(msg)
     print('-----------------------------------------------------------')
