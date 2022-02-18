@@ -38,10 +38,13 @@ v0.1.22 : 08.02.2022 --> integed all count in the file counter (no kore file err
 v0.1.23 : 08.02.2022 --> impoved the loading of libraries
 v0.1.24 : 14.02.2022 --> added WROOM uC
 v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
+v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 """
 VERSION = '0.1.25'
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
+
+ON_BATTERY = False
 
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
@@ -323,7 +326,7 @@ def main():
         if DEBUG_MES_EXEC_TIME: mes.time_step('central disconnect')
 
         # check the level of the battery
-        if bat > (0.98 * UBAT_0):
+        if bat > (0.98 * UBAT_0) or not ON_BATTERY:
             # finishing tasks
             elapsed = ticks_ms() - start_time
             t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
