@@ -39,8 +39,9 @@ v0.1.23 : 08.02.2022 --> impoved the loading of libraries
 v0.1.24 : 14.02.2022 --> added WROOM uC
 v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
+v0.1.27 : 20.02.2022 --> added PROTO uC
 """
-VERSION = '0.1.25'
+VERSION = '0.1.27'
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -138,6 +139,8 @@ elif MICROCONTROLER == 'WROOM':
     BM_VCC_PIN = 23
     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
     BM_VCC_PIN.on()
+elif MICROCONTROLER == 'PROTO':
+    pass
 else:
     print('ERROR')
     print('No known microcontroler defined. Correct that and restart the program')
@@ -342,7 +345,7 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
-        log.log_error(e)
+        log.log_error(e + ,' - ', sys.print_exception)
         sleep_ms(2000)
         reset()
 

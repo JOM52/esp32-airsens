@@ -17,25 +17,26 @@ v0.1.3 : 22.01.2022 --> message is now coded (added module lib.encode_decode.py)
 v0.1.4 : 28.01.2022 --> new message removed gas measurement
 v0.1.5 : 30.01.2022 --> wifi, rtc, mqtt impemented
 v0.1.6 : 31.01.2022 --> added crc management for transmission errors
-v0.1.7 : 14.02.2022 --> encode_decode in class form
-
+v0.1.7 : 22.02.2022 --> improved error management
 """
+VERSION = '0.1.7'
+PROGRAM_NAME = 'airsens_ble_central.py'
 
 from machine import Pin, Timer, SoftI2C
 from utime import sleep_ms
 import ubluetooth
 import ubinascii
 import machine
+import sys
 
-from lib.encode_decode import EncodeDecode
-enc_dec = EncodeDecode()
+from lib.encode_decode import decode_msg, crc
 from lib import wifi_esp32 as wifi
 from lib import umqttsimple2_jo as umqttsimple
 from lib import rtc_esp32
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
-CENTRAL_NAME = "jmb_airsens_esp32-wroom-32"
+CENTRAL_NAME = "jmb_airsens_ttgo_01"
 ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
@@ -98,6 +99,7 @@ class BLE():
                 '''Central disconnected'''
                 self.advertiser()
                 self.connected()
+    #             print(self.irq_list)
                 self.irq_list = []
             except Exception as err:
                 err_no = log.counters('error', True)
@@ -108,28 +110,34 @@ class BLE():
             try:
                 '''New message received'''
                 buffer = self.ble.gatts_read(self.rx)
+                print('-----> 1')
                 message = buffer.decode('UTF-8').strip()
+                print('-----> 2')
                 if message[:3] == 'jmb':
+                    print('-----> 3')
                     passe = log.counters('passe', True)
                     now = self.my_rtc.rtc_now()  # get date and time
                     datetime_formated = self.my_rtc.format_datetime(now)
-                    jmb_id, piece, temp, hum, pres, bat, rx_crc = enc_dec.decode_msg(message)
-                    calc_crc = enc_dec.get_crc(message[:17])
+                    jmb_id, piece, temp, hum, pres, bat, rx_crc = decode_msg(message)
+                    calc_crc = crc(message[:17])
+                    print('-----> 4')
                     if rx_crc == calc_crc:
                         try:
                             client = self.connect_and_subscribe(CLIENT_ID, MQTT_BROKER, TOPIC_PUB)
+                            print('-----> 5')
                             client.publish(TOPIC_PUB, message)
+                            print('-----> 6')
                             client.disconnect()
-                            print(str(passe) + '-'
-                                  + datetime_formated + '-'
+                            print(str(passe) + ' - '
+                                  + datetime_formated + ' - '
                                   + jmb_id + '-'
                                   + piece
-                                  + ' - temp:' + str(temp)
-                                  + ' - hum:' + str(hum)
-                                  + ' - pres:' + str(pres)
-                                  + ' - bat:' + str(bat)
-                                  + ' - crc:' + str(calc_crc)
-                                  + ' - errors:' + str(log.counters('error')))
+                                  + ' --> temp: ' + str(temp)
+                                  + ' --> hum: ' + str(hum)
+                                  + ' --> pres: ' + str(pres)
+                                  + ' --> bat: ' + str(bat)
+                                  + ' --> crc: ' + str(calc_crc)
+                                  + ' --> errors: ' + str(log.counters('error')))
                         except Exception as err:
                             err_no = log.counters('error', True)
                             log.get_and_log_error_info(err, err_no, ' - MQTT publish')
@@ -140,9 +148,9 @@ class BLE():
                             
             except Exception as err:
                 err_no = log.counters('error', True)
-                log.log_error(err, ' - _IRQ_GATTS_WRITE')
-                print(err)
-        
+                log.get_and_log_error_info(err, err_no, ' - _IRQ_GATTS_WRITE')
+                print('err:', err)
+       
     def connect_and_subscribe(self, client_id, mqtt_broker, topic_pub):
         client = umqttsimple.MQTTClient(client_id, mqtt_broker)
         client.connect(True)
@@ -170,20 +178,29 @@ class BLE():
   
 def main():
     
-    print('-----------------------------------------------------------')
-    my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
-    my_wifi.connect_wifi()
-    my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
-    my_rtc.rtc_init()  # initialize the rtc with local date and time
-    now = my_rtc.rtc_now()  # get date and time
-    datetime_formated = my_rtc.format_datetime(now)
-    msg = "now date and time :" + datetime_formated
-    my_rtc = None
-    print(msg)
-    print('-----------------------------------------------------------')
-    print('central listening as <' + CENTRAL_NAME + '>')
-    blue_led = Pin(2, Pin.OUT)
-    ble = BLE(CENTRAL_NAME)
+#     client = connect_and_subscribe(CLIENT_ID, MQTT_BROKER, TOPIC_PUB)
+#     print('MQTT client connected on ' + MQTT_BROKER + ' with the topic ' + TOPIC_PUB)
+#     
+    try:
+        print('-----------------------------------------------------------')
+        print(PROGRAM_NAME + ' - Version:' + VERSION)
+        my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
+        my_wifi.connect_wifi()
+        my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
+        my_rtc.rtc_init()  # initialize the rtc with local date and time
+        now = my_rtc.rtc_now()  # get date and time
+        datetime_formated = my_rtc.format_datetime(now)
+        msg = "now date and time :" + datetime_formated + '\n'
+        my_rtc = None
+        print(msg)
+        print('-----------------------------------------------------------')
+        print('central listening as <' + CENTRAL_NAME + '>')
+        blue_led = Pin(2, Pin.OUT)
+        ble = BLE(CENTRAL_NAME)
+    except Exception as err:
+        err_no = log.counters('error', True)
+        log.get_and_log_error_info(err, err_no, ' - _IRQ_GATTS_WRITE')
+        print('err:', err)
 
 if __name__ == '__main__':
     main()

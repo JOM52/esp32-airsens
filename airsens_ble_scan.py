@@ -270,7 +270,7 @@ def main():
             v_choice = int(input('Enter the central number (best choice=' +
                            str(nearest_index) + ' - rssi:' + str(nearest_level) + 'db:')
                            or str(nearest_index))
-        print(v_choice)
+#         print(v_choice)
         # record the user choice in the file
         if v_choice >= 0 and v_choice <= nb:
             # writing the choice in the config_uart.txt file
