@@ -40,8 +40,10 @@ v0.1.24 : 14.02.2022 --> added WROOM uC
 v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 v0.1.27 : 20.02.2022 --> added PROTO uC
+v0.1.28 : 23.02.2022 --> small correction on error management
+v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
 """
-VERSION = '0.1.27'
+VERSION = '0.1.29'
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -250,12 +252,23 @@ class BleJmbSensor:
 
     # Send data over the UART
     def write(self, v, i):
-        try:
-            self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
-        except Exception as e:
+        n_tries = 5
+        write_ok = False
+        while n_tries > 0 or not write_ok:
+            try:
+                self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
+                write_ok = True
+            except Exception as e:
+                n_tries -= 1
+                err_txt = str(e)
+            sleep_ms(500)
+            
+        if not write_ok:
             log.counters('error', True) # increment error counter
-            log.log_error('Write on BLE UART error ' + str(e))
+            log.log_error('Write on BLE UART error ' + err_txt)
             reset()
+        else:
+            return n_tries
     
 def main():
     try:
@@ -345,7 +358,7 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
-        log.log_error(e + ,' - ', sys.print_exception)
+        log.log_error(str(e) + ' - ', sys.print_exception)
         sleep_ms(2000)
         reset()
 
