@@ -40,8 +40,9 @@ v0.1.24 : 14.02.2022 --> added WROOM uC
 v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 v0.1.27 : 20.02.2022 --> added PROTO uC
+v0.1.28 : 23.02.2022 --> small correction on error management
 """
-VERSION = '0.1.27'
+VERSION = '0.1.28'
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -345,7 +346,7 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
-        log.log_error(e + ,' - ', sys.print_exception)
+        log.log_error(str(e) + ' - ', sys.print_exception)
         sleep_ms(2000)
         reset()
 
