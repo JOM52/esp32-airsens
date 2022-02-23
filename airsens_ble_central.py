@@ -18,8 +18,12 @@ v0.1.4 : 28.01.2022 --> new message removed gas measurement
 v0.1.5 : 30.01.2022 --> wifi, rtc, mqtt impemented
 v0.1.6 : 31.01.2022 --> added crc management for transmission errors
 v0.1.7 : 22.02.2022 --> improved error management
+v0.1.8 : 23.02.2022 --> corrected import and use for encode_decode
+v0.1.9 : 23.02.2022 --> corrected import for log_and_count
+v0.1.10 : 23.02.2022 --> level of debug increased
+v0.1.11 : 23.02.2022 --> added line number and file in log_error
 """
-VERSION = '0.1.7'
+VERSION = '0.1.10'
 PROGRAM_NAME = 'airsens_ble_central.py'
 
 from machine import Pin, Timer, SoftI2C
@@ -29,14 +33,15 @@ import ubinascii
 import machine
 import sys
 
-from lib.encode_decode import decode_msg, crc
+from lib.encode_decode import EncodeDecode
+encode_decode = EncodeDecode()
 from lib import wifi_esp32 as wifi
 from lib import umqttsimple2_jo as umqttsimple
 from lib import rtc_esp32
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
-CENTRAL_NAME = "jmb_airsens_ttgo_01"
+CENTRAL_NAME = "jmb_airsens_wemos_01"
 ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
@@ -82,33 +87,40 @@ class BLE():
 
     # irq handler
     def ble_irq(self, event, data):
-        
+        print('--> 00')        
         self.irq_list.append(event)
         if event == _IRQ_CENTRAL_CONNECT: #1
             try:
                 '''Central connected'''
                 self.disconnected()
+                print('--> 01')        
                 self.led(1)
             except Exception as err:
-                err_no = log.counters('error', True)
-                log.get_and_log_error_info(err, err_no, ' - _IRQ_CENTRAL_CONNECT')
+                print('--> 02')        
+                log.counters('error', True)
+                log.log_error('_IRQ_CENTRAL_CONNECT', err)
                 print(err)
         
         elif event == _IRQ_CENTRAL_DISCONNECT: #2
             try:
+                print('--> 03')        
                 '''Central disconnected'''
                 self.advertiser()
                 self.connected()
+                print('--> 04')        
     #             print(self.irq_list)
                 self.irq_list = []
             except Exception as err:
-                err_no = log.counters('error', True)
-                log.get_and_log_error_info(err, err_no, ' - _IRQ_CENTRAL_DISCONNECT')
+                print('--> 05')        
+                log.counters('error', True)
+                log.log_error('_IRQ_CENTRAL_DISCONNECT', err)
                 print(err)
         
         elif event == _IRQ_GATTS_WRITE: #3
+            print('--> 06')        
             try:
                 '''New message received'''
+                print('-----> 0')
                 buffer = self.ble.gatts_read(self.rx)
                 print('-----> 1')
                 message = buffer.decode('UTF-8').strip()
@@ -118,8 +130,8 @@ class BLE():
                     passe = log.counters('passe', True)
                     now = self.my_rtc.rtc_now()  # get date and time
                     datetime_formated = self.my_rtc.format_datetime(now)
-                    jmb_id, piece, temp, hum, pres, bat, rx_crc = decode_msg(message)
-                    calc_crc = crc(message[:17])
+                    jmb_id, piece, temp, hum, pres, bat, rx_crc = encode_decode.decode_msg(message)
+                    calc_crc = encode_decode.get_crc(message[:17])
                     print('-----> 4')
                     if rx_crc == calc_crc:
                         try:
@@ -139,26 +151,32 @@ class BLE():
                                   + ' --> crc: ' + str(calc_crc)
                                   + ' --> errors: ' + str(log.counters('error')))
                         except Exception as err:
-                            err_no = log.counters('error', True)
-                            log.get_and_log_error_info(err, err_no, ' - MQTT publish')
+                            print('--> 07')        
+                            log.counters('error', True)
+                            log.log_error('MQTT publish', err)
                             print(err)
                     else:
-                        err_no = log.counters('error', True)
-                        log.get_and_log_error_info('Transmission error: bad CRC', err_no)                    
+                        print('--> 08')        
+                        log.counters('error', True)
+                        log.log_error('Transmission error: bad CRC')                    
                             
             except Exception as err:
-                err_no = log.counters('error', True)
-                log.get_and_log_error_info(err, err_no, ' - _IRQ_GATTS_WRITE')
+                print('--> 09')        
+                log.counters('error', True)
+                log.log_error('_IRQ_GATTS_WRITE', err)
                 print('err:', err)
        
     def connect_and_subscribe(self, client_id, mqtt_broker, topic_pub):
+        print('--> 10')        
         client = umqttsimple.MQTTClient(client_id, mqtt_broker)
         client.connect(True)
     #     print('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_broker, topic_pub))
+        print('--> 11')        
         return client
 
     # Nordic UART Service (NUS)       
     def register(self):        
+        print('--> 12')        
         NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
         RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
         TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
@@ -170,11 +188,14 @@ class BLE():
         BLE_UART = (BLE_NUS, (BLE_TX, BLE_RX,))
         SERVICES = (BLE_UART, )
         ((self.tx, self.rx,), ) = self.ble.gatts_register_services(SERVICES)
+        print('--> 13')        
 
     
     def advertiser(self):
+        print('--> 14')        
         name = bytes(self.name, 'UTF-8')
         self.ble.gap_advertise(ADVERTISE_INTERVAL, bytearray('\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
+        print('--> 15')        
   
 def main():
     
@@ -198,8 +219,8 @@ def main():
         blue_led = Pin(2, Pin.OUT)
         ble = BLE(CENTRAL_NAME)
     except Exception as err:
-        err_no = log.counters('error', True)
-        log.get_and_log_error_info(err, err_no, ' - _IRQ_GATTS_WRITE')
+        log.counters('error', True)
+        log.log_error('_IRQ_GATTS_WRITE', err)
         print('err:', err)
 
 if __name__ == '__main__':

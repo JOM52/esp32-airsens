@@ -44,6 +44,7 @@ v0.1.28 : 23.02.2022 --> small correction on error management
 v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
 """
 VERSION = '0.1.29'
+
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -61,9 +62,9 @@ if DEBUG_MES_EXEC_TIME:
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
-from sys import exit#, print_exception
+from sys import exit, print_exception
+from uio import StringIO
 from micropython import const
-# from uio import StringIO
 from random import uniform
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
@@ -254,22 +255,47 @@ class BleJmbSensor:
     def write(self, v, i):
         n_tries = 5
         write_ok = False
-        while n_tries > 0 or not write_ok:
+        err = None
+        while n_tries > 0:
+            print(n_tries, write_ok)
             try:
                 self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
+                n_tries = 0
                 write_ok = True
             except Exception as e:
+                err = e
+                try:
+                    self.connect(self._addr_type, self._addr)
+                    while not self._irq_peripheral_connect or not self._irq_service_done:
+                        pass
+                except:
+                    print('connect not possible')
                 n_tries -= 1
-                err_txt = str(e)
-            sleep_ms(500)
+                sleep_ms(500)
             
         if not write_ok:
             log.counters('error', True) # increment error counter
-            log.log_error('Write on BLE UART error ' + err_txt)
+            log.log_error('Write on BLE UART error', err)
             reset()
-        else:
-            return n_tries
-    
+
+#     def error_handling(self, e):
+#         s=StringIO()
+#         print_exception(e, s)  
+#         s=s.getvalue()
+#         
+#         s=s.split('\n')
+#         
+#         line=s[1].split(',')
+#         line=line[1]
+#         error=s[2]
+#         err=error+line
+#         return err
+        
+# except Exception as e:
+#   exc_type, exc_obj, exc_tb = sys.exc_info()
+#   fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+#   print(exc_type, fname, exc_tb.tb_lineno)...
+
 def main():
     try:
         i = log.counters('passe', True)
@@ -358,7 +384,7 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
-        log.log_error(str(e) + ' - ', sys.print_exception)
+        log.log_error('Main program error', e)
         sleep_ms(2000)
         reset()
 
