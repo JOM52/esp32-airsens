@@ -42,8 +42,9 @@ v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 v0.1.27 : 20.02.2022 --> added PROTO uC
 v0.1.28 : 23.02.2022 --> small correction on error management
 v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
+v0.1.30 : 24.02.2022 --> better error management on write over uart
 """
-VERSION = '0.1.29'
+VERSION = '0.1.30'
 
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
@@ -265,17 +266,19 @@ class BleJmbSensor:
             except Exception as e:
                 err = e
                 try:
+                    log.log_error('Try to reconnect in write essai:' + str(n_tries-1), e)
                     self.connect(self._addr_type, self._addr)
                     while not self._irq_peripheral_connect or not self._irq_service_done:
                         pass
                 except:
                     print('connect not possible')
+                    log.log_error('Connect not possible', err)
                 n_tries -= 1
                 sleep_ms(500)
             
         if not write_ok:
             log.counters('error', True) # increment error counter
-            log.log_error('Write on BLE UART error', err)
+            log.log_error('Write on BLE UART error --> reset()', err)
             reset()
 
 #     def error_handling(self, e):
@@ -374,7 +377,7 @@ def main():
             t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
             print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms - soft V' + VERSION)
-            print('==============================')
+            print('=================================================')
             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
             deepsleep(t_deepsleep)
         else:

@@ -23,7 +23,7 @@ v0.1.9 : 23.02.2022 --> corrected import for log_and_count
 v0.1.10 : 23.02.2022 --> level of debug increased
 v0.1.11 : 23.02.2022 --> added line number and file in log_error
 """
-VERSION = '0.1.10'
+VERSION = '0.1.11'
 PROGRAM_NAME = 'airsens_ble_central.py'
 
 from machine import Pin, Timer, SoftI2C
@@ -41,14 +41,14 @@ from lib import rtc_esp32
 from lib.log_and_count import LogAndCount
 log = LogAndCount()
 
-CENTRAL_NAME = "jmb_airsens_wemos_01"
+CENTRAL_NAME = "jmb_airsens_ttgo_01"
 ADVERTISE_INTERVAL = 250 # org value = 100
 
 _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
 _IRQ_GATTS_WRITE = const(3)
     
-MQTT_BROKER = '192.168.1.108'
+MQTT_BROKER = '192.168.1.123'
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 TOPIC_PUB = 'airsens_test'
 
@@ -205,7 +205,8 @@ def main():
     try:
         print('-----------------------------------------------------------')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
-        my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
+#         my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
+        my_wifi = wifi.WifiEsp32('MagentaWLAN-2AAY', '31856362908682905071')
         my_wifi.connect_wifi()
         my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
         my_rtc.rtc_init()  # initialize the rtc with local date and time
