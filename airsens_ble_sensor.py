@@ -41,8 +41,16 @@ v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 v0.1.27 : 20.02.2022 --> added PROTO uC
 v0.1.28 : 23.02.2022 --> small correction on error management
+<<<<<<< HEAD
 """
 VERSION = '0.1.28'
+=======
+v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
+v0.1.30 : 24.02.2022 --> better error management on write over uart
+"""
+VERSION = '0.1.30'
+
+>>>>>>> write_uart
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -60,9 +68,9 @@ if DEBUG_MES_EXEC_TIME:
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
 from ubinascii import hexlify, unhexlify
-from sys import exit#, print_exception
+from sys import exit, print_exception
+from uio import StringIO
 from micropython import const
-# from uio import StringIO
 from random import uniform
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
@@ -251,13 +259,51 @@ class BleJmbSensor:
 
     # Send data over the UART
     def write(self, v, i):
-        try:
-            self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
-        except Exception as e:
+        n_tries = 5
+        write_ok = False
+        err = None
+        while n_tries > 0:
+            print(n_tries, write_ok)
+            try:
+                self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
+                n_tries = 0
+                write_ok = True
+            except Exception as e:
+                err = e
+                try:
+                    log.log_error('Try to reconnect in write essai:' + str(n_tries-1), e)
+                    self.connect(self._addr_type, self._addr)
+                    while not self._irq_peripheral_connect or not self._irq_service_done:
+                        pass
+                except:
+                    print('connect not possible')
+                    log.log_error('Connect not possible', err)
+                n_tries -= 1
+                sleep_ms(500)
+            
+        if not write_ok:
             log.counters('error', True) # increment error counter
-            log.log_error('Write on BLE UART error ' + str(e))
+            log.log_error('Write on BLE UART error --> reset()', err)
             reset()
-    
+
+#     def error_handling(self, e):
+#         s=StringIO()
+#         print_exception(e, s)  
+#         s=s.getvalue()
+#         
+#         s=s.split('\n')
+#         
+#         line=s[1].split(',')
+#         line=line[1]
+#         error=s[2]
+#         err=error+line
+#         return err
+        
+# except Exception as e:
+#   exc_type, exc_obj, exc_tb = sys.exc_info()
+#   fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+#   print(exc_type, fname, exc_tb.tb_lineno)...
+
 def main():
     try:
         i = log.counters('passe', True)
@@ -336,7 +382,7 @@ def main():
             t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
             print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms - soft V' + VERSION)
-            print('==============================')
+            print('=================================================')
             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
             deepsleep(t_deepsleep)
         else:
@@ -346,7 +392,11 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
+<<<<<<< HEAD
         log.log_error(str(e) + ' - ', sys.print_exception)
+=======
+        log.log_error('Main program error', e)
+>>>>>>> write_uart
         sleep_ms(2000)
         reset()
 

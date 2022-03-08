@@ -21,8 +21,14 @@ v0.1.7 : 22.02.2022 --> improved error management
 v0.1.8 : 23.02.2022 --> corrected import and use for encode_decode
 v0.1.9 : 23.02.2022 --> corrected import for log_and_count
 v0.1.10 : 23.02.2022 --> level of debug increased
+<<<<<<< HEAD
 """
 VERSION = '0.1.10'
+=======
+v0.1.11 : 23.02.2022 --> added line number and file in log_error
+"""
+VERSION = '0.1.11'
+>>>>>>> write_uart
 PROGRAM_NAME = 'airsens_ble_central.py'
 
 from machine import Pin, Timer, SoftI2C
@@ -47,7 +53,7 @@ _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
 _IRQ_GATTS_WRITE = const(3)
     
-MQTT_BROKER = '192.168.1.108'
+MQTT_BROKER = '192.168.1.123'
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 TOPIC_PUB = 'airsens_test'
 
@@ -96,8 +102,13 @@ class BLE():
                 self.led(1)
             except Exception as err:
                 print('--> 02')        
+<<<<<<< HEAD
                 err_no = log.counters('error', True)
                 log.log_error(err, ' - _IRQ_CENTRAL_CONNECT')
+=======
+                log.counters('error', True)
+                log.log_error('_IRQ_CENTRAL_CONNECT', err)
+>>>>>>> write_uart
                 print(err)
         
         elif event == _IRQ_CENTRAL_DISCONNECT: #2
@@ -111,8 +122,13 @@ class BLE():
                 self.irq_list = []
             except Exception as err:
                 print('--> 05')        
+<<<<<<< HEAD
                 err_no = log.counters('error', True)
                 log.log_error(err, ' - _IRQ_CENTRAL_DISCONNECT')
+=======
+                log.counters('error', True)
+                log.log_error('_IRQ_CENTRAL_DISCONNECT', err)
+>>>>>>> write_uart
                 print(err)
         
         elif event == _IRQ_GATTS_WRITE: #3
@@ -151,6 +167,7 @@ class BLE():
                                   + ' --> errors: ' + str(log.counters('error')))
                         except Exception as err:
                             print('--> 07')        
+<<<<<<< HEAD
                             err_no = log.counters('error', True)
                             log.log_error(err, ' - MQTT publish')
                             print(err)
@@ -163,6 +180,20 @@ class BLE():
                 print('--> 09')        
                 err_no = log.counters('error', True)
                 log.log_error(err, ' - _IRQ_GATTS_WRITE')
+=======
+                            log.counters('error', True)
+                            log.log_error('MQTT publish', err)
+                            print(err)
+                    else:
+                        print('--> 08')        
+                        log.counters('error', True)
+                        log.log_error('Transmission error: bad CRC')                    
+                            
+            except Exception as err:
+                print('--> 09')        
+                log.counters('error', True)
+                log.log_error('_IRQ_GATTS_WRITE', err)
+>>>>>>> write_uart
                 print('err:', err)
        
     def connect_and_subscribe(self, client_id, mqtt_broker, topic_pub):
@@ -204,7 +235,8 @@ def main():
     try:
         print('-----------------------------------------------------------')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
-        my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
+#         my_wifi = wifi.WifiEsp32('jmb-home', 'lu-mba01')
+        my_wifi = wifi.WifiEsp32('MagentaWLAN-2AAY', '31856362908682905071')
         my_wifi.connect_wifi()
         my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
         my_rtc.rtc_init()  # initialize the rtc with local date and time
@@ -218,8 +250,13 @@ def main():
         blue_led = Pin(2, Pin.OUT)
         ble = BLE(CENTRAL_NAME)
     except Exception as err:
+<<<<<<< HEAD
         err_no = log.counters('error', True)
         log.log_error(err, ' - _IRQ_GATTS_WRITE')
+=======
+        log.counters('error', True)
+        log.log_error('_IRQ_GATTS_WRITE', err)
+>>>>>>> write_uart
         print('err:', err)
 
 if __name__ == '__main__':

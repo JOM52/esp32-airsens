@@ -1,0 +1,4 @@
+wifi:{'pa': 'lu-mba01', 'wan': 'jmb-home'}
+mqtt:{'broker_id': '192.168.1.123', 'topic': 'airsens_test'}
+central:{'name': 'jmb-airsens-ttgo_01', 'advertise_interval_ms': '250'}
+sensor:{'ubat_0': '3.5', 'ubat_100': '4.2', 'id': 'w9', 'uc': 'WROOM', 't_deepsleep_ms': '15000', 'type': 'BME680', 'r1': '100000', 'r2': '33000'}

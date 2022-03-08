@@ -17,7 +17,8 @@ v0.1.3 : 02.02.2022 --> corection on the function couters
 v0.1.4 : 02.02.2022 --> correction on the function log error
 v0.1.5 : 05.02.2022 --> modified log and count to log the count of the same error
 v0.1.6 : 08.02.2022 --> correction of error introduced in v0.1.5
-v0.1.7 : 08.02.2022 --> no more file erro.txt. All counter in are now in the file counter.txt
+v0.1.7 : 08.02.2022 --> no more file error.txt. All counter in are now in the file counter.txt
+v0.1.8 : 23.02.2022 --> addd file name and line number on error
 """
 from uio import StringIO
 from sys import print_exception 
@@ -70,7 +71,7 @@ class LogAndCount:
     def log_error(self, err_info, more_info=''):
         cpl = ""
         if more_info:
-            cpl = ' - ' + more_info
+            cpl = ' - ' + self.error_handling(more_info)
         if isinstance(err_info, list):  
             s = StringIO()
             print_exception(err_info, s)
@@ -87,47 +88,22 @@ class LogAndCount:
         msg = msg.replace(':', '->')
         
         return self.counters(msg, True)
+    
+    def error_handling(self, e):
         
-#         return self.write_error(msg)
+        try:
+            s=StringIO()
+            print_exception(e, s)  
+            s=s.getvalue()
+            s=s.split('\n')
+            line=s[1].split(',')
+            line=line[1]
+            error=s[2]
+            err=error+line
+        except:
+            err = None
+        return err
         
-#     def write_error(self, msg):
-#         # error logging
-#         f_name = 'error.txt'
-#         v_ret = 1
-#         # test if file exist ans wen yes read it
-#         try:
-#             with open (f_name, 'r') as f:
-#                 f_exist = True
-#                 lines = f.readlines()
-#         except:
-#             f_exist = False
-#             
-#         if f_exist:
-#             # check ig line exist
-#             l_exist = False
-#             for line in lines:
-#                 ls = line.split(':')
-#                 if ls[0] == msg:
-#                     l_exist = True
-#         
-#             if l_exist:
-#                 with open (f_name, 'w') as f:
-#                     for line in lines:
-#                         if line.strip() != '':
-#                             e_name, e_val = line.split(':')
-#                             e_val = e_val.replace('\n', '')
-#                             if e_name.strip() == msg.strip():
-#                                 e_val = int(e_val) + 1
-#                             f.write(e_name + ':' + str(e_val) + '\n')
-#                             v_ret = e_val
-#             else:
-#                 with open (f_name, 'a') as f:
-#                     f.write(str(msg) + ':1\n')
-#         else:
-#             # the file dosent exist so create it ans set the counter to one
-#             with open (f_name, 'w') as f:
-#                 f.write(str(msg) + ':1\n')
-#         return v_ret
 
 def main():
     # instantie the class
