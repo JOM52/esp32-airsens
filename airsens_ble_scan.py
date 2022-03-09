@@ -20,12 +20,19 @@ v0.1.2 : 17.01.2022 --> cleaned up, prototype stable for long test
 v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
 v0.1.4 : 08.02.2022 --> improved the user's selection
 v0.1.5 : 14.02.2022 --> error on user selection corrected
+v0.1.6 : 08.03.2022 --> use of config_parser
 """
+VERSION = '0.1.6'
+PROGRAM_NAME = 'airsens_ble_scan.py'
 
 import ubluetooth
 import ubinascii
 import utime
 from lib.ble_advertising import decode_name
+from lib.config_parser import ConfigParser
+conf_filename = 'airsens.conf'
+cp = ConfigParser()
+cp.read(conf_filename)
 
 T_WAIT_FOR_IRQ_TERMINATED_MS = 100
 # IRQ constants
@@ -38,9 +45,17 @@ _IRQ_GATTC_SERVICE_DONE = const(10)
 _IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
 _IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
 
-NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
-TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
+if cp.has_option('BLE', 'NUS_UUID'):
+    NUS_UUID = cp.get('BLE', 'NUS_UUID')
+if cp.has_option('BLE', 'RX_UUID'):
+    RX_UUID = cp.get('BLE', 'RX_UUID')
+if cp.has_option('BLE', 'TX_UUID'):
+    TX_UUID = cp.get('BLE', 'TX_UUID')
+
+
+# NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
+# RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
+# TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
     
 _UART_SERVICE_UUID = ubluetooth.UUID(NUS_UUID)
 _UART_RX_CHAR_UUID = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
@@ -168,13 +183,6 @@ class BleAirsensScan:
                 self._gattc_characteristic_done = True
             else:
                 print("Failed to find uart rx characteristic.")
-                
-    def config_write_conn_info(self, data):
-        with open ('config_uart.txt', 'w') as f:
-            if data:
-                f.write(data)
-            else:
-                f.write('')
 
     def bytes_to_asc(self, v_bytes):
         return ubinascii.hexlify(bytes(v_bytes)).decode('utf-8')
@@ -198,10 +206,35 @@ class BleAirsensScan:
     def disconnect(self):
         self._ble.gap_disconnect(self._conn_handle)
         self._irq_peripheral_disconnect = True
+                
+    def config_write_conn_info(self, data):
+        with open ('config_uart.txt', 'w') as f:
+            if data:
+                f.write(data)
+            else:
+                f.write('')
+                
+    def config_parse_conn_info(self, addr_type, addr, adv_type, rssi, name, conn_handle, start_handle, end_handle, tx_handle, rx_handle):
+        
+        if cp.has_section('UART'):
+            cp.remove_section('UART')
+        cp.add_section('UART')
+        cp.add_option('UART', 'ADDR_TYPE', addr_type)
+        cp.add_option('UART', 'ADDR', addr)
+        cp.add_option('UART', 'ADV_TYPE', adv_type)
+        cp.add_option('UART', 'RSSI', rssi)
+        cp.add_option('UART', 'NAME', name)
+        cp.add_option('UART', 'CONN_HANDLE', conn_handle)
+        cp.add_option('UART', 'START_HANDLE', start_handle)
+        cp.add_option('UART', 'END_HANDLE', end_handle)
+        cp.add_option('UART', 'TX_HANDLE', tx_handle)
+        cp.add_option('UART', 'RX_HANDLE', rx_handle)
+        cp.write(conf_filename)
 
 
 def main():
     
+    print(PROGRAM_NAME + ' - Version:' + VERSION)
     print('initializing bluetooth')
     # instatiation of bluetooth.BLE
     ble = ubluetooth.BLE()
@@ -274,17 +307,31 @@ def main():
         # record the user choice in the file
         if v_choice >= 0 and v_choice <= nb:
             # writing the choice in the config_uart.txt file
-            config_txt = 'addr_type:' + str(ble_scan._central_list[v_choice][0]) + '\n'
-            config_txt += 'addr:' + ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1]) + '\n'
-            config_txt += 'adv_type:' + str(ble_scan._central_list[v_choice][2]) + '\n'
-            config_txt += 'rssi:' + str(ble_scan._central_list[v_choice][3]) + '\n'
-            config_txt += 'name:' + ble_scan._central_list[v_choice][4] + '\n'
-            config_txt += 'conn_handle:' + str(ble_scan.conn_handle[v_choice]) + '\n'
-            config_txt += 'start_handle:' + str(ble_scan.start_handle[v_choice]) + '\n'
-            config_txt += 'end_handle:' + str(ble_scan.end_handle[v_choice]) + '\n'
-            config_txt += 'tx_handle:' + str(ble_scan.tx_handle[v_choice]) + '\n'
-            config_txt += 'rx_handle:' + str(ble_scan.rx_handle[v_choice]) + '\n'
-            ble_scan.config_write_conn_info(config_txt)        
+            addr_type = str(ble_scan._central_list[v_choice][0])
+            addr = ble_scan.bytes_to_asc(ble_scan._central_list[v_choice][1])
+            adv_type = str(ble_scan._central_list[v_choice][2])
+            rssi = str(ble_scan._central_list[v_choice][3])
+            name = ble_scan._central_list[v_choice][4]
+            conn_handle = str(ble_scan.conn_handle[v_choice])
+            start_handle = str(ble_scan.start_handle[v_choice])
+            end_handle = str(ble_scan.end_handle[v_choice])
+            tx_handle = str(ble_scan.tx_handle[v_choice])
+            rx_handle = str(ble_scan.rx_handle[v_choice])
+            
+            ble_scan.config_parse_conn_info(addr_type, addr, adv_type, rssi, name, conn_handle, start_handle, end_handle, tx_handle, rx_handle)
+            
+            config_txt = 'addr_type:' + addr_type + '\n'
+            config_txt += 'addr:' + addr + '\n'
+            config_txt += 'adv_type:' + adv_type + '\n'
+            config_txt += 'rssi:' + rssi + '\n'
+            config_txt += 'name:' + name + '\n'
+            config_txt += 'conn_handle:' + conn_handle + '\n'
+            config_txt += 'start_handle:' + start_handle + '\n'
+            config_txt += 'end_handle:' + end_handle + '\n'
+            config_txt += 'tx_handle:' + tx_handle + '\n'
+            config_txt += 'rx_handle:' + rx_handle + '\n'
+            ble_scan.config_write_conn_info(config_txt)
+            
 
             print('-------------------------------------------------------')
             print('checked in: ' + ble_scan._central_list[v_choice][4] +

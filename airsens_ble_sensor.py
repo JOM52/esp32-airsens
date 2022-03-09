@@ -41,16 +41,14 @@ v0.1.25 : 14.02.2022 --> if battery low endless deepsleep to protect battery
 v0.1.26 : 16.02.2022 --> add check if ON_BATTERY
 v0.1.27 : 20.02.2022 --> added PROTO uC
 v0.1.28 : 23.02.2022 --> small correction on error management
-<<<<<<< HEAD
-"""
-VERSION = '0.1.28'
-=======
 v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
 v0.1.30 : 24.02.2022 --> better error management on write over uart
+v0.1.31 : 07.03.2022 --> procedure connect simplified
+v0.1.32 : 09.03.2022 --> integration of config_parser.py
 """
-VERSION = '0.1.30'
+VERSION = '0.1.32'
+PROGRAM_NAME = 'airsens_ble_sensor.py'
 
->>>>>>> write_uart
 import esp
 esp.osdebug("*", esp.LOG_DEBUG) 
 
@@ -95,16 +93,48 @@ CONNECTED_SENSOR_TYPE = None
 MICROCONTROLER = None
 SENSOR_ID = None
 T_DEEPSLEEP_MS = None
-        
+
+# read options in airsens.conf
+from lib.config_parser import ConfigParser
+conf_filename = 'airsens.conf'
+cp = ConfigParser()
+cp.read(conf_filename)
+try:
+    # SENSOR options
+    if cp.has_option('SENSOR', 'TYPE'):
+        CONNECTED_SENSOR_TYPE = cp.get('SENSOR', 'TYPE')
+    else:
+        raise Exception('"SENSOR:TYPE"')
+    
+    if cp.has_option('SENSOR', 'UC'):
+        MICROCONTROLER = cp.get('SENSOR', 'UC')
+    else:
+        raise Exception('"SENSOR:UC"')
+    
+    if cp.has_option('SENSOR', 'ID'):
+        SENSOR_ID = cp.get('SENSOR', 'ID')
+    else:
+        raise Exception('"SENSOR:ID"')
+    
+    if cp.has_option('SENSOR', 'T_DEEPSLEEP_MS'):
+        T_DEEPSLEEP_MS = int(cp.get('SENSOR', 'T_DEEPSLEEP_MS'))
+    else:
+        raise Exception('"SENSOR:T_DEEPSLEEP_MS"')
+except Exception as e:
+    print('The ' + str(e) + ' key does not exist in the "airsens.conf" configuration file.')
+    print('Correct the file then relaunch the program.')
+    sys.exit()
+
+
 # def sensor_config_read():
-with open('config_sensor.txt', 'r') as f:
-    lines = f.readlines()
-    for l in lines:
-        c, v = l.replace('\n\r', '').split('=')
-        if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
-        elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
-        elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
-        elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
+# with open('config_sensor.txt', 'r') as f:
+#     lines = f.readlines()
+#     for l in lines:
+#         c, v = l.replace('\n\r', '').split('=')
+#         if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
+#         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
+#         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
+#         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
         
 # todo --- a tester ----------------------------
 # T_DEEPSLEEP_MS += uniform(-500, 500)
@@ -191,7 +221,7 @@ class BleJmbSensor:
 
     def _reset(self):
         # Cached name and address from a successful scan.
-        self._name = None
+#         self._name = None
         self._addr_type = None
         self._addr = None
 
@@ -231,24 +261,29 @@ class BleJmbSensor:
     def asc_to_bytes(self, v_ascii):
         return unhexlify((v_ascii))
 
+#     def config_read_conn_info(self):
+#         with open ('config_uart.txt', 'r') as f:
+#             config_data = f.readlines()
+#             for l in config_data:
+#                 n, v = l.split(':')
+#                 if n == 'addr_type':
+#                     self._addr_type = int(v)
+#                 elif n == 'addr':
+#                     self._addr = self.asc_to_bytes(v.replace('\n', ''))
+#                 elif n == 'name':
+#                     self._name = v.replace('\n', '')
+#                 elif n == 'rx_handle':
+#                     self._rx_handle = int(v)
+                
     def config_read_conn_info(self):
-        with open ('config_uart.txt', 'r') as f:
-            config_data = f.readlines()
-            for l in config_data:
-                n, v = l.split(':')
-                if n == 'addr_type':
-                    self._addr_type = int(v)
-                elif n == 'addr':
-                    self._addr = self.asc_to_bytes(v.replace('\n', ''))
-                elif n == 'name':
-                    self._name = v.replace('\n', '')
-                elif n == 'rx_handle':
-                    self._rx_handle = int(v)
-
+        
+        self._addr_type = int(cp.get('UART', 'ADDR_TYPE'))
+        self._addr = self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
+        self._name = cp.get('UART', 'NAME').replace('\n', '')
+        self._rx_handle = int(cp.get('UART', 'RX_HANDLE'))
+        
     # Connect to the specified device (otherwise use cached address from a scan).
-    def connect(self, addr_type=None, addr=None, scan_duration_ms=500): #, callback=None):
-        self._addr_type = addr_type
-        self._addr = addr
+    def connect(self, scan_duration_ms=500): 
         self._ble.gap_connect(self._addr_type, self._addr)
         return True
 
@@ -263,7 +298,6 @@ class BleJmbSensor:
         write_ok = False
         err = None
         while n_tries > 0:
-            print(n_tries, write_ok)
             try:
                 self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
                 n_tries = 0
@@ -272,13 +306,15 @@ class BleJmbSensor:
                 err = e
                 try:
                     log.log_error('Try to reconnect in write essai:' + str(n_tries-1), e)
-                    self.connect(self._addr_type, self._addr)
+#                     self.connect(self._addr_type, self._addr)
+                    self.connect()
                     while not self._irq_peripheral_connect or not self._irq_service_done:
                         pass
                 except:
                     print('connect not possible')
                     log.log_error('Connect not possible', err)
                 n_tries -= 1
+                print('n_tries:', n_tries)
                 sleep_ms(500)
             
         if not write_ok:
@@ -286,26 +322,10 @@ class BleJmbSensor:
             log.log_error('Write on BLE UART error --> reset()', err)
             reset()
 
-#     def error_handling(self, e):
-#         s=StringIO()
-#         print_exception(e, s)  
-#         s=s.getvalue()
-#         
-#         s=s.split('\n')
-#         
-#         line=s[1].split(',')
-#         line=line[1]
-#         error=s[2]
-#         err=error+line
-#         return err
-        
-# except Exception as e:
-#   exc_type, exc_obj, exc_tb = sys.exc_info()
-#   fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-#   print(exc_type, fname, exc_tb.tb_lineno)...
-
 def main():
     try:
+        print('=================================================')
+        print(PROGRAM_NAME + ' - Version:' + VERSION)
         i = log.counters('passe', True)
         if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
 
@@ -355,7 +375,8 @@ def main():
         msg += crc_val
         
         #connect to the central
-        sensor.connect(sensor._addr_type, sensor._addr)
+#         sensor.connect(sensor._addr_type, sensor._addr)
+        sensor.connect()
         while not sensor._irq_peripheral_connect or not sensor._irq_service_done:
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('central connect')
@@ -366,8 +387,7 @@ def main():
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('message write')
         
-        print()
-        print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val)
+        print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val + ' --> ' + sensor._name)
         
         # disconnect from the central
         sensor.disconnect()
@@ -381,7 +401,7 @@ def main():
             elapsed = ticks_ms() - start_time
             t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
             print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
-            print('going to deepsleep for: ' + str(t_deepsleep) + ' ms - soft V' + VERSION)
+            print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
             deepsleep(t_deepsleep)
@@ -392,11 +412,7 @@ def main():
         
     except Exception as e:
         log.counters('error', True)
-<<<<<<< HEAD
-        log.log_error(str(e) + ' - ', sys.print_exception)
-=======
         log.log_error('Main program error', e)
->>>>>>> write_uart
         sleep_ms(2000)
         reset()
 
