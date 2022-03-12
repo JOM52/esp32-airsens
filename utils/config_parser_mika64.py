@@ -49,6 +49,9 @@ class ConfigParser:
         self.config_dict = {line.replace('[','').replace(']',''):{} for line in content.split('\n')\
                 if line.startswith('[') and line.endswith(']')
                 }
+        for line in content:
+            if line.startswith('[') and line.endswith(']'):
+                print(line.replace('[','').replace(']',''))
 
         striped_content = [line.strip() for line in content.split('\n')]
         for section in self.config_dict.keys():

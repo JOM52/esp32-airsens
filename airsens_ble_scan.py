@@ -21,8 +21,9 @@ v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
 v0.1.4 : 08.02.2022 --> improved the user's selection
 v0.1.5 : 14.02.2022 --> error on user selection corrected
 v0.1.6 : 08.03.2022 --> use of config_parser
+v0.1.7 : 11.03.2022 --> improved config_parser
 """
-VERSION = '0.1.6'
+VERSION = '0.1.7'
 PROGRAM_NAME = 'airsens_ble_scan.py'
 
 import ubluetooth
@@ -330,7 +331,7 @@ def main():
             config_txt += 'end_handle:' + end_handle + '\n'
             config_txt += 'tx_handle:' + tx_handle + '\n'
             config_txt += 'rx_handle:' + rx_handle + '\n'
-            ble_scan.config_write_conn_info(config_txt)
+#             ble_scan.config_write_conn_info(config_txt)
             
 
             print('-------------------------------------------------------')
