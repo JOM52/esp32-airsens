@@ -22,7 +22,7 @@ from wifi_esp32 import WifiEsp32
 class RtcEsp32:
     
     def __init__(self):
-        self.TIMEZONE_CORRECTION = 3600  # 3600 secondes par heure de décalage
+        self.TIMEZONE_CORRECTION = 2*3600  # 3600 secondes par heure de décalage
 
     def rtc_init(self, year=0, month=0, day=0, hour=0, minute=0, second=0):
         rtc = machine.RTC()

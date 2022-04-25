@@ -57,13 +57,21 @@ class ConfigParser:
     def read(self, filename=None):
         """Read and parse a filename."""
         with open (filename, 'r') as f:
-            content = f.read()
-            
+            content_r = f.read()
+         
+        content = ""
+        for l in content_r.split('\r'):
+            content += l
+            content += '\n'
+
         self.config_dict = {line.replace('[','').replace(']',''):{} for line in content.split('\n')\
                 if line.startswith('[') and line.endswith(']')
                 }
-        
+#         for line in content:
+#             if line.startswith('[') and line.endswith(']'):
+#                 print(line.replace('[','').replace(']',''))
         striped_content = [line.strip() for line in content.split('\n')]
+#         print(striped_content)
         
         for section in self.config_dict.keys():
             start_index = striped_content.index('[%s]' % section)
@@ -91,11 +99,12 @@ class ConfigParser:
                 elif len(values) == 1:
                     values = values[0]
                 self.config_dict[section][option] = values
+#         print(self.config_dict)
 
     def has_option(self, section, option):
         """Check for the existence of a given option in a given section."""
         if not section in self.config_dict:
-            raise Exception("la section n'existe pas")
+            raise Exception("la section " + section +" n'existe pas")
         if option in self.config_dict[section].keys():
             return True
         else:
@@ -147,7 +156,6 @@ def main():
         cp.add_option('MQTT', 'USERNAME', 'jmb')
     if not cp.has_option('MQTT', 'PW'):
         cp.add_option('MQTT', 'PW', 'mablonde')
-        
     cp.write(f_name)
 
     for key, value in cp.config_dict.items():
