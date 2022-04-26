@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# import esp
+# esp.osdebug("*", esp.LOG_DEBUG) 
+
 """
 file: airsens_ble_sensor.py 
 
@@ -46,46 +49,48 @@ v0.1.30 : 24.02.2022 --> better error management on write over uart
 v0.1.31 : 07.03.2022 --> procedure connect simplified
 v0.1.32 : 09.03.2022 --> integration of config_parser.py
 v0.1.33.ppk : 21.04.2022 --> intégration of flags for Nordic PPK II
+v0.1.34.ppk : 22.04.2022 --> revision off exec time measurement
 """
 VERSION = '0.1.33.ppk'
-PROGRAM_NAME = 'airsens_ble_sensor.py'
+PROGRAM_NAME = 'airsens_ble_sensor_ppk.py'
 
 from machine import Pin
-# Nordic PPK II
+
+# Nordic PPK logic chanels II
 PPK_0_PIN = 5
-PPK_1_PIN = 25
-PPK_2_PIN = 32
-PPK_3_PIN = 26
-PPK_4_PIN = 4
-PPK_5_PIN = 33
-
 PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
-PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
-PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
-PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
-PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
-PPK_5 = Pin(PPK_5_PIN, Pin.OUT)
-
 PPK_0.on()
+
+PPK_1_PIN = 25
+PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
 PPK_1.off()
+
+PPK_2_PIN = 32
+PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
 PPK_2.off()
+
+PPK_3_PIN = 26
+PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
 PPK_3.off()
+
+PPK_4_PIN = 4
+PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
 PPK_4.off()
+
+PPK_5_PIN = 33
+PPK_5 = Pin(PPK_5_PIN, Pin.OUT)
 PPK_5.off()
-
-# import esp
-# esp.osdebug("*", esp.LOG_DEBUG) 
-
-ON_BATTERY = False
 
 from utime import sleep_ms, ticks_ms
 start_time = ticks_ms()
+DEBUG_MES_EXEC_TIME = True
 
-DEBUG_MES_EXEC_TIME = False
 if DEBUG_MES_EXEC_TIME:
     from lib.exec_time_mes import exec_time_mes
     mes = exec_time_mes()
     mes.time_step('start')
+
+ON_BATTERY = True
 
 from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
 from ubinascii import hexlify, unhexlify
@@ -111,6 +116,10 @@ from lib.blink import Blink
 blink = Blink(2)
 if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
 
+from lib.config_parser import ConfigParser
+cp = ConfigParser()
+if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ConfigParser')
+
 
 
 # Hardware choices to import from config_sensor.txt
@@ -120,9 +129,7 @@ SENSOR_ID = None
 T_DEEPSLEEP_MS = None
 
 # read options in airsens.conf
-from lib.config_parser import ConfigParser
 conf_filename = 'airsens.conf'
-cp = ConfigParser()
 cp.read(conf_filename)
 try:
     # SENSOR options
@@ -150,17 +157,8 @@ except Exception as e:
     print('Correct the file then relaunch the program.')
     sys.exit()
 
+if DEBUG_MES_EXEC_TIME: mes.time_step('read file airsens.conf')
 
-# def sensor_config_read():
-# with open('config_sensor.txt', 'r') as f:
-#     lines = f.readlines()
-#     for l in lines:
-#         c, v = l.replace('\n\r', '').split('=')
-#         if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
-#         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
-#         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
-#         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
-        
 # todo --- a tester ----------------------------
 # T_DEEPSLEEP_MS += uniform(-500, 500)
 
@@ -175,7 +173,7 @@ else:
     print('No known sensor defined. Correct that and restart the program')
     print('Possibilities are BME280, BME680 ot NO_SENSOR')
     exit()
-if DEBUG_MES_EXEC_TIME: mes.time_step('sensor import')
+if DEBUG_MES_EXEC_TIME: mes.time_step('sensor ' + CONNECTED_SENSOR_TYPE + ' import')
     
 # sensor pins and init
 BM_SDA_PIN = 21
@@ -377,15 +375,15 @@ def main():
             print('Pas trouvé de ' + CONNECTED_SENSOR_TYPE + ' branché?')
             print('Corrigez et relancez le programme!')
             exit()
-        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor class initialise')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor ' + CONNECTED_SENSOR_TYPE + ' class initialise')
         
         # instatiation of bluetooth.BLE
         ble = BLE()
         sensor = BleJmbSensor(ble)
-        if DEBUG_MES_EXEC_TIME: mes.time_step('ble class initialise')
         
         # read and initialise variable from config file
         sensor.config_read_conn_info()
+        if DEBUG_MES_EXEC_TIME: mes.time_step('ble class initialise')
         
         if CONNECTED_SENSOR_TYPE == 'BME680':
             gas = bmeX.gas / 1000
@@ -402,11 +400,11 @@ def main():
             hum = float(bmeX.humidity)
             pres = float(bmeX.pressure)
             bat = float(ubatt.voltage/1000)
-        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor config')
             
         msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
         crc_val = encode_decode.get_crc(msg)
         msg += crc_val
+        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor read and encode')
 
 #############################################
 # flag 18 initiale end
@@ -429,10 +427,11 @@ def main():
         print('PPK_4')
         
         sensor.write(msg, i)
-        blink.blink_internal_blue_led(100, 100, 100, 3)
         while  not sensor._irq_write_done:
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('message write')
+        blink.blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=100, n_repeat=3)
+        if DEBUG_MES_EXEC_TIME: mes.time_step('blink blue led')
         
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val + ' --> ' + sensor._name)
 # flag 19 write on BLE end
@@ -454,6 +453,7 @@ def main():
             print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
+            if DEBUG_MES_EXEC_TIME: mes.time_step('finish and display results')
             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
 # flag 23 prg end
             PPK_5.off()
