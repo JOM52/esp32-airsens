@@ -50,35 +50,33 @@ v0.1.31 : 07.03.2022 --> procedure connect simplified
 v0.1.32 : 09.03.2022 --> integration of config_parser.py
 v0.1.33.ppk : 21.04.2022 --> intégration of flags for Nordic PPK II
 v0.1.34.ppk : 22.04.2022 --> revision off exec time measurement
+v0.1.35.ppk : 26.04.2022 --> try to reduce exec time
 """
-VERSION = '0.1.33.ppk'
+VERSION = '0.1.35.ppk'
 PROGRAM_NAME = 'airsens_ble_sensor_ppk.py'
 
 from machine import Pin
 
-# Nordic PPK logic chanels II
+# Nordic Power Prefiler Kkit II logic chanels
 PPK_0_PIN = 5
-PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
-PPK_0.on()
-
 PPK_1_PIN = 25
-PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
-PPK_1.off()
-
 PPK_2_PIN = 32
-PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
-PPK_2.off()
-
 PPK_3_PIN = 26
-PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
-PPK_3.off()
-
 PPK_4_PIN = 4
-PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
-PPK_4.off()
-
 PPK_5_PIN = 33
+
+PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
+PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
+PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
+PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
+PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
 PPK_5 = Pin(PPK_5_PIN, Pin.OUT)
+
+PPK_0.on()
+PPK_1.off()
+PPK_2.off()
+PPK_3.off()
+PPK_4.off()
 PPK_5.off()
 
 from utime import sleep_ms, ticks_ms
@@ -92,12 +90,10 @@ if DEBUG_MES_EXEC_TIME:
 
 ON_BATTERY = True
 
-from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
-from ubinascii import hexlify, unhexlify
-from sys import exit, print_exception
-from uio import StringIO
+from bluetooth import BLE
+from ubinascii import unhexlify
+from sys import exit
 from micropython import const
-from random import uniform
 from machine import ADC, reset, SoftI2C, deepsleep
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
@@ -112,15 +108,13 @@ from lib.log_and_count import LogAndCount
 log = LogAndCount()
 if DEBUG_MES_EXEC_TIME: mes.time_step('lib import LogAndCount')
 
-from lib.blink import Blink
-blink = Blink(2)
-if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
-
 from lib.config_parser import ConfigParser
 cp = ConfigParser()
 if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ConfigParser')
 
-
+# from lib.blink import Blink
+# blink = Blink(2)
+# if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
 
 # Hardware choices to import from config_sensor.txt
 CONNECTED_SENSOR_TYPE = None
@@ -155,12 +149,9 @@ try:
 except Exception as e:
     print('The ' + str(e) + ' key does not exist in the "airsens.conf" configuration file.')
     print('Correct the file then relaunch the program.')
-    sys.exit()
+    exit()
 
 if DEBUG_MES_EXEC_TIME: mes.time_step('read file airsens.conf')
-
-# todo --- a tester ----------------------------
-# T_DEEPSLEEP_MS += uniform(-500, 500)
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -178,37 +169,6 @@ if DEBUG_MES_EXEC_TIME: mes.time_step('sensor ' + CONNECTED_SENSOR_TYPE + ' impo
 # sensor pins and init
 BM_SDA_PIN = 21
 BM_SCL_pin = 22
-
-if MICROCONTROLER == 'TTGO':
-    BM_VCC_PIN = 15
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.off()
-elif MICROCONTROLER == 'WEMOS':
-    BM_VCC_PIN = 17
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.off()
-    BM_GND_PIN = 16
-    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
-    BM_GND_PIN.off()
-elif MICROCONTROLER == 'NODE':
-    BM_VCC_PIN = 19
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.off()
-    BM_GND_PIN = 18
-    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
-    BM_GND_PIN.off()
-elif MICROCONTROLER == 'WROOM':
-    BM_VCC_PIN = 23
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.off()
-elif MICROCONTROLER == 'PROTO':
-    pass
-else:
-    print('ERROR')
-    print('No known microcontroler defined. Correct that and restart the program')
-    print('Possibilities are TTGO, WEMOS, NODE or WROOM')
-    exit()
-if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -349,7 +309,6 @@ def main():
 
     PPK_1.on()
     PPK_0.off()
-    print('PPK_1')
     try:
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
@@ -359,7 +318,6 @@ def main():
 # flag 26 Import and config
         PPK_2.on()
         PPK_1.off()
-        print('PPK_2')
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
@@ -410,8 +368,6 @@ def main():
 # flag 18 initiale end
         PPK_2.off()
         PPK_3.on()
-        print('PPK_3')
-
 
         #connect to the central
 #         sensor.connect(sensor._addr_type, sensor._addr)
@@ -424,20 +380,18 @@ def main():
 # flag 19 connect end
         PPK_3.off()
         PPK_4.on()
-        print('PPK_4')
         
         sensor.write(msg, i)
         while  not sensor._irq_write_done:
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('message write')
-        blink.blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=100, n_repeat=3)
-        if DEBUG_MES_EXEC_TIME: mes.time_step('blink blue led')
+#         blink.blink_internal_blue_led(t_on_ms=100, t_off_ms=100, t_pause_ms=100, n_repeat=3)
+#         if DEBUG_MES_EXEC_TIME: mes.time_step('blink blue led')
         
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val + ' --> ' + sensor._name)
 # flag 19 write on BLE end
         PPK_4.off()
         PPK_5.on()
-        print('PPK_5')
         
         # disconnect from the central
         sensor.disconnect()
