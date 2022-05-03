@@ -146,26 +146,3 @@ class ConfigParser:
         if not self.has_section(section):
             raise Exception("la section n'existe pas")
         del self.config_dict[section]
-
-def main():
-    f_name = 'airsens.conf'
-    cp = ConfigParser()
-    cp.read(f_name)
-    
-    if not cp.has_option('MQTT', 'USERNAME'):
-        cp.add_option('MQTT', 'USERNAME', 'jmb')
-    if not cp.has_option('MQTT', 'PW'):
-        cp.add_option('MQTT', 'PW', 'mablonde')
-    cp.write(f_name)
-
-    for key, value in cp.config_dict.items():
-        print('%s:%s' % (key, value))
-    print()
-    
-    if cp.has_option('MQTT', 'TOPIC'):
-        print(cp.get('MQTT', 'TOPIC'))
-    if cp.has_option('SENSOR', 'UBAT_0'):
-        print(float(cp.get('SENSOR', 'UBAT_0')))
-
-if __name__ == '__main__':
-    main()

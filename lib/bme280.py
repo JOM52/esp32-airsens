@@ -1,8 +1,8 @@
 # Original source: https://github.com/RuiSantosdotme/ESP-MicroPython/blob/master/code/WiFi/HTTP_Client_IFTTT_BME280/BME280.py
 
-from machine import I2C 
-import time
-import math
+# from machine import I2C 
+from time import sleep_us
+from math import pow
 
 # BME280 default address.
 BME280_I2CADDR = 0x76
@@ -198,7 +198,7 @@ class BME280:
 
     sleep_time = sleep_time + 2300 * (1 << self._mode) + 575
     sleep_time = sleep_time + 2300 * (1 << self._mode) + 575
-    time.sleep_us(sleep_time)  # Wait the required time
+    sleep_us(sleep_time)  # Wait the required time
     msb = self._device.readU8(BME280_REGISTER_TEMP_DATA)
     lsb = self._device.readU8(BME280_REGISTER_TEMP_DATA + 1)
     xlsb = self._device.readU8(BME280_REGISTER_TEMP_DATA + 2)
@@ -294,40 +294,4 @@ class BME280:
   @property
   def altitude(self):
     pressure = float(self.pressure)
-    return 44330 * (1.0 - math.pow(pressure / self.sea_level_pressure, 0.1903))
-
-if __name__ == '__main__':
-    
-    import machine
-    import utime
-
-    BME280_VCC_PIN = 17
-    BME280_GND_PIN = 16
-    BME280_SDA_PIN = 21
-    BME280_SCL_pin = 22
-    bm_vcc_pin = machine.Pin(BME280_VCC_PIN, machine.Pin.OUT)
-    bm_gnd_pin = machine.Pin(BME280_GND_PIN, machine.Pin.OUT)
-    bm_vcc_pin.on()
-    bm_gnd_pin.off()
-
-    # BM280 - Pin assignment
-    i2c = machine.SoftI2C(scl=machine.Pin(BME280_SCL_pin), sda=machine.Pin(BME280_SDA_PIN), freq=10000)
-    bme = BME280(i2c=i2c)
-    
-
-    while True:
-        
-        temp = bme.temperature
-        hum = bme.humidity
-        pres = bme.pressure
-        # uncomment for temperature in Fahrenheit
-        #temp = (bme.read_temperature()/100) * (9/5) + 32
-        #temp = str(round(temp, 2)) + 'F'
-        print('Temperature: ', temp)
-        print('Humidity: ', hum)
-        print('Pressure: ', pres)
-        print()
-        
-        bm_vcc_pin.off()
-
-        utime.sleep(5)
+    return 44330 * (1.0 - pow(pressure / self.sea_level_pressure, 0.1903))

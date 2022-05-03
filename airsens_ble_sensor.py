@@ -45,31 +45,28 @@ v0.1.29 : 23.02.2022 --> working on write data over uart (BleJmbSensor.write)
 v0.1.30 : 24.02.2022 --> better error management on write over uart
 v0.1.31 : 07.03.2022 --> procedure connect simplified
 v0.1.32 : 09.03.2022 --> integration of config_parser.py
+v0.1.33.ppk : 21.04.2022 --> intégration of flags for Nordic PPK II
+v0.1.34.ppk : 22.04.2022 --> revision off exec time measurement
+v0.1.35.ppk : 26.04.2022 --> try to reduce exec time
+v0.1.36 : 03.05.2022 --> limit import to necessary
 """
-VERSION = '0.1.32'
+VERSION = '0.1.36'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
 
-import esp
-esp.osdebug("*", esp.LOG_DEBUG) 
+DEBUG_MES_EXEC_TIME = True
+# if DEBUG_MES_EXEC_TIME:
+from lib.exec_time_mes import exec_time_mes
+mes = exec_time_mes()
+mes.time_step('start')
 
 ON_BATTERY = False
 
-from utime import sleep_ms, ticks_ms
-start_time = ticks_ms()
-
-DEBUG_MES_EXEC_TIME = False
-if DEBUG_MES_EXEC_TIME:
-    from lib.exec_time_mes import exec_time_mes
-    mes = exec_time_mes()
-    mes.time_step('start')
-
-from bluetooth import UUID, FLAG_WRITE, FLAG_READ, FLAG_NOTIFY, BLE
+from utime import sleep_ms
+from bluetooth import BLE
 from machine import Pin, ADC, reset, SoftI2C, deepsleep
-from ubinascii import hexlify, unhexlify
-from sys import exit, print_exception
-from uio import StringIO
+from ubinascii import unhexlify
+from sys import exit
 from micropython import const
-from random import uniform
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
 from lib.adc1_cal import ADC1Cal
@@ -83,9 +80,9 @@ from lib.log_and_count import LogAndCount
 log = LogAndCount()
 if DEBUG_MES_EXEC_TIME: mes.time_step('lib import LogAndCount')
 
-from lib.blink import Blink
-blink = Blink(2)
-if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
+# from lib.blink import Blink
+# blink = Blink(2)
+# if DEBUG_MES_EXEC_TIME: mes.time_step('lib import Blink')
 
 
 # Hardware choices to import from config_sensor.txt
@@ -125,20 +122,6 @@ except Exception as e:
     print('Correct the file then relaunch the program.')
     sys.exit()
 
-
-# def sensor_config_read():
-# with open('config_sensor.txt', 'r') as f:
-#     lines = f.readlines()
-#     for l in lines:
-#         c, v = l.replace('\n\r', '').split('=')
-#         if c == 'CONNECTED_SENSOR_TYPE': CONNECTED_SENSOR_TYPE = v.strip()
-#         elif c == 'MICROCONTROLER': MICROCONTROLER = v.strip()
-#         elif c == 'SENSOR_ID': SENSOR_ID = v.strip()
-#         elif c == 'T_DEEPSLEEP_MS': T_DEEPSLEEP_MS = int(v)
-        
-# todo --- a tester ----------------------------
-# T_DEEPSLEEP_MS += uniform(-500, 500)
-
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
 elif CONNECTED_SENSOR_TYPE == 'BME680':
@@ -155,37 +138,37 @@ if DEBUG_MES_EXEC_TIME: mes.time_step('sensor import')
 # sensor pins and init
 BM_SDA_PIN = 21
 BM_SCL_pin = 22
-
-if MICROCONTROLER == 'TTGO':
-    BM_VCC_PIN = 15
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.on()
-elif MICROCONTROLER == 'WEMOS':
-    BM_VCC_PIN = 17
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.on()
-    BM_GND_PIN = 16
-    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
-    BM_GND_PIN.off()
-elif MICROCONTROLER == 'NODE':
-    BM_VCC_PIN = 19
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.on()
-    BM_GND_PIN = 18
-    BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
-    BM_GND_PIN.off()
-elif MICROCONTROLER == 'WROOM':
-    BM_VCC_PIN = 23
-    BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
-    BM_VCC_PIN.on()
-elif MICROCONTROLER == 'PROTO':
-    pass
-else:
-    print('ERROR')
-    print('No known microcontroler defined. Correct that and restart the program')
-    print('Possibilities are TTGO, WEMOS, NODE or WROOM')
-    exit()
-if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
+# 
+# if MICROCONTROLER == 'TTGO':
+#     BM_VCC_PIN = 15
+#     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
+#     BM_VCC_PIN.on()
+# elif MICROCONTROLER == 'WEMOS':
+#     BM_VCC_PIN = 17
+#     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
+#     BM_VCC_PIN.on()
+#     BM_GND_PIN = 16
+#     BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
+#     BM_GND_PIN.off()
+# elif MICROCONTROLER == 'NODE':
+#     BM_VCC_PIN = 19
+#     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
+#     BM_VCC_PIN.on()
+#     BM_GND_PIN = 18
+#     BM_GND_PIN = Pin(BM_GND_PIN, Pin.OUT)
+#     BM_GND_PIN.off()
+# elif MICROCONTROLER == 'WROOM':
+#     BM_VCC_PIN = 23
+#     BM_VCC_PIN = Pin(BM_VCC_PIN, Pin.OUT)
+#     BM_VCC_PIN.on()
+# elif MICROCONTROLER == 'PROTO':
+#     pass
+# else:
+#     print('ERROR')
+#     print('No known microcontroler defined. Correct that and restart the program')
+#     print('Possibilities are TTGO, WEMOS, NODE or WROOM')
+#     exit()
+# if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
 
 # analog voltage measurement
 R1 = 100e3 # first divider bridge resistor
@@ -201,6 +184,11 @@ ubatt.atten(ADC.ATTN_6DB)
 # battery
 UBAT_100 = 4.2
 UBAT_0 = 3.5
+
+pot = ADC(Pin(ADC1_PIN))            
+pot.atten(ADC.ATTN_6DB)
+pot.width(ADC.WIDTH_12BIT)
+
 if DEBUG_MES_EXEC_TIME: mes.time_step('analog config')
 
 # IRQ constants
@@ -323,7 +311,7 @@ class BleJmbSensor:
             reset()
 
 def main():
-    try:
+#     try:
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
         i = log.counters('passe', True)
@@ -368,11 +356,13 @@ def main():
             hum = float(bmeX.humidity)
             pres = float(bmeX.pressure)
             bat = float(ubatt.voltage/1000)
-        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor config')
+            bat1 = float(pot.read() * (2 / 4095) / DIV)
+        if DEBUG_MES_EXEC_TIME: mes.time_step('sensor read')
             
-        msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
+        msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat1)
         crc_val = encode_decode.get_crc(msg)
         msg += crc_val
+        if DEBUG_MES_EXEC_TIME: mes.time_step('encode sensor measure')
         
         #connect to the central
 #         sensor.connect(sensor._addr_type, sensor._addr)
@@ -382,10 +372,12 @@ def main():
         if DEBUG_MES_EXEC_TIME: mes.time_step('central connect')
         
         sensor.write(msg, i)
-        blink.blink_internal_blue_led(100, 100, 100, 3)
         while  not sensor._irq_write_done:
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('message write')
+
+#         blink.blink_internal_blue_led(100, 100, 100, 3)
+#         if DEBUG_MES_EXEC_TIME: mes.time_step('blink')
         
         print('jmb_' + str(SENSOR_ID) + ' --> ' + msg + ' crc:' + crc_val + ' --> ' + sensor._name)
         
@@ -398,23 +390,23 @@ def main():
         # check the level of the battery
         if bat > (0.98 * UBAT_0) or not ON_BATTERY:
             # finishing tasks
-            elapsed = ticks_ms() - start_time
-            t_deepsleep = max(T_DEEPSLEEP_MS - elapsed, 10)
-            print('passe', i, '- error count:', log.counters('error'),'-->',  str(elapsed) + 'ms', )
+#             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
+            mes.time_step('stop')
+            t_deepsleep = max(T_DEEPSLEEP_MS - mes._total_time, 10)
+            print('passe', i, '- error count:', log.counters('error'),'-->',  str(mes._total_time) + 'ms', )
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
-            if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
             deepsleep(t_deepsleep)
         else:
             print('Endless deepsleep due to low battery')
             if DEBUG_MES_EXEC_TIME: mes.time_step('endless deepsleep due to low battery')
             deepsleep()
         
-    except Exception as e:
-        log.counters('error', True)
-        log.log_error('Main program error', e)
-        sleep_ms(2000)
-        reset()
+#     except Exception as e:
+#         log.counters('error', True)
+#         log.log_error('Main program error', e)
+#         sleep_ms(2000)
+#         reset()
 
 if __name__ == "__main__":
     main()

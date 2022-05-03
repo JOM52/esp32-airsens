@@ -20,7 +20,6 @@ v0.1.6 : 08.02.2022 --> correction of error introduced in v0.1.5
 v0.1.7 : 08.02.2022 --> no more file error.txt. All counter in are now in the file counter.txt
 v0.1.8 : 23.02.2022 --> addd file name and line number on error
 """
-from uio import StringIO
 from sys import print_exception 
 
 class LogAndCount:
@@ -71,7 +70,7 @@ class LogAndCount:
     def log_error(self, err_info, more_info=''):
         cpl = ""
         if more_info:
-            cpl = ' - ' + self.error_handling(more_info)
+            cpl = ' - ' + str(self.error_handling(more_info))
         if isinstance(err_info, list):  
             s = StringIO()
             print_exception(err_info, s)
@@ -103,30 +102,3 @@ class LogAndCount:
         except:
             err = None
         return err
-        
-
-def main():
-    # instantie the class
-    count_and_log = LogAndCount()
-    
-    # test the counters
-    counter_name = ['test', 'test1', 'test2', 'test3', 'test4']
-    add1 = True
-#     print('counters test\n-------------')
-    for c_name in counter_name:
-        v = count_and_log.counters(c_name, add1)
-        add1 = not add1
-        
-    # test get_and_log_error_info
-    err_txt_list = ['error_cpteur_0', 'error_cpteur_1', 'error_cpteur_2']
-    for e_txt in err_txt_list:
-        count_and_log.log_error(e_txt)
-    
-    print('\ncounters and errors test\n----------')
-    with open('counter.txt', 'r') as f:
-        lines = f.readlines()
-        for l in lines:
-            print(l.replace('\n', ''))
-    
-if __name__ == '__main__':
-    main()
