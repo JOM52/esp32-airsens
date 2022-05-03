@@ -11,6 +11,7 @@ github: https://github.com/jom52/esp32-airsens
 
 record the execution time
 v0.1.0 : 27.01.2022 --> first prototype
+v0.1.1 : 26.04.2022 --> minors changes
 """
 
 from utime import sleep_ms, ticks_ms
@@ -30,14 +31,8 @@ class exec_time_mes:
                 step_name,value = line.split(':')
                 if len(step_name) > len_name : len_name = len(step_name)
             len_name += 1
-#             try:
-#                 with open ('exec_time.txt', 'r') as f:
-#                     file_open_mode = 'a'
-#             except:
-#                 file_open_mode = 'w'
             file_open_mode = 'w'
             with open ('exec_time.txt', file_open_mode) as f:
-#                 f.write('\n')
                 old_time = self._start_time
                 for line in self._time_list:
                     step_name,value = line.split(':')

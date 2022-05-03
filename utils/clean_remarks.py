@@ -60,7 +60,7 @@ def main():
     # clean the files in the lib directory
     cu.clean_up('../lib/')
     # and in the root directory
-    cu.clean_up('../')
+#     cu.clean_up('../')
     
 if __name__ == '__main__':
     main()

@@ -103,30 +103,3 @@ class LogAndCount:
         except:
             err = None
         return err
-        
-
-def main():
-    # instantie the class
-    count_and_log = LogAndCount()
-    
-    # test the counters
-    counter_name = ['test', 'test1', 'test2', 'test3', 'test4']
-    add1 = True
-#     print('counters test\n-------------')
-    for c_name in counter_name:
-        v = count_and_log.counters(c_name, add1)
-        add1 = not add1
-        
-    # test get_and_log_error_info
-    err_txt_list = ['error_cpteur_0', 'error_cpteur_1', 'error_cpteur_2']
-    for e_txt in err_txt_list:
-        count_and_log.log_error(e_txt)
-    
-    print('\ncounters and errors test\n----------')
-    with open('counter.txt', 'r') as f:
-        lines = f.readlines()
-        for l in lines:
-            print(l.replace('\n', ''))
-    
-if __name__ == '__main__':
-    main()

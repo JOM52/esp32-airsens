@@ -62,19 +62,3 @@ class EncodeDecode:
         crc = crc_0 + crc_1 * 3
         if crc < 10 : crc *= 10
         return str(crc)[-2:]
-        
-
-if __name__ == '__main__':
-    # encode msf ans add crc
-    encode_decode = EncodeDecode()
-    msg = encode_decode.encode_msg('jmb', 'bu', 22.2, 55, 999, 4.44)
-    crc_tx = encode_decode.get_crc(msg)
-    print('crc_tx:', crc_tx)
-    msg += crc_tx
-    print('send msg:', msg)
-    # decode msg and verify crc
-    jmb_id, piece, temp, hum, pres, bat, crc_rx = encode_decode.decode_msg(msg)
-    if crc_tx == crc_rx:
-        print('Transmission ok good crc')
-    else:
-        print('Transmission error bad crc')
