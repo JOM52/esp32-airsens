@@ -49,6 +49,7 @@ v0.1.33.ppk : 21.04.2022 --> intégration of flags for Nordic PPK II
 v0.1.34.ppk : 22.04.2022 --> revision off exec time measurement
 v0.1.35.ppk : 26.04.2022 --> try to reduce exec time
 v0.1.36 : 03.05.2022 --> limit import to necessary
+v0.1.37 : 06.05.2022 --> simplified ADC measure (without calibration)
 """
 VERSION = '0.1.36'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
