@@ -56,10 +56,10 @@ PROGRAM_NAME = 'airsens_ble_sensor.py'
 DEBUG_MES_EXEC_TIME = True
 # if DEBUG_MES_EXEC_TIME:
 from lib.exec_time_mes import exec_time_mes
-mes = exec_time_mes()
+mes = exec_time_mes(stat_mes = False)
 mes.time_step('start')
 
-ON_BATTERY = False
+ON_BATTERY = True
 
 from utime import sleep_ms
 from bluetooth import BLE
@@ -69,8 +69,8 @@ from sys import exit
 from micropython import const
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
-from lib.adc1_cal import ADC1Cal
-if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ADC1Cal')
+# from lib.adc1_cal import ADC1Cal
+# if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ADC1Cal')
 
 from lib.encode_decode import EncodeDecode
 encode_decode = EncodeDecode()
@@ -92,35 +92,20 @@ SENSOR_ID = None
 T_DEEPSLEEP_MS = None
 
 # read options in airsens.conf
-from lib.config_parser import ConfigParser
-conf_filename = 'airsens.conf'
-cp = ConfigParser()
-cp.read(conf_filename)
-try:
-    # SENSOR options
-    if cp.has_option('SENSOR', 'TYPE'):
-        CONNECTED_SENSOR_TYPE = cp.get('SENSOR', 'TYPE')
-    else:
-        raise Exception('"SENSOR:TYPE"')
-    
-    if cp.has_option('SENSOR', 'UC'):
-        MICROCONTROLER = cp.get('SENSOR', 'UC')
-    else:
-        raise Exception('"SENSOR:UC"')
-    
-    if cp.has_option('SENSOR', 'ID'):
-        SENSOR_ID = cp.get('SENSOR', 'ID')
-    else:
-        raise Exception('"SENSOR:ID"')
-    
-    if cp.has_option('SENSOR', 'T_DEEPSLEEP_MS'):
-        T_DEEPSLEEP_MS = int(cp.get('SENSOR', 'T_DEEPSLEEP_MS'))
-    else:
-        raise Exception('"SENSOR:T_DEEPSLEEP_MS"')
-except Exception as e:
-    print('The ' + str(e) + ' key does not exist in the "airsens.conf" configuration file.')
-    print('Correct the file then relaunch the program.')
-    sys.exit()
+# from lib.config_parser import ConfigParser
+# conf_filename = 'airsens.conf'
+# cp = ConfigParser()
+# if DEBUG_MES_EXEC_TIME: mes.time_step('conf import')
+# 
+# cp.read(conf_filename)
+# 
+# if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
+
+CONNECTED_SENSOR_TYPE = 'BME280'
+MICROCONTROLER = 'WEMOS'
+SENSOR_ID = 'ex'
+T_DEEPSLEEP_MS = 10000
+# if DEBUG_MES_EXEC_TIME: mes.time_step('conf read values')
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
     import lib.bme280 as bmex80
@@ -176,11 +161,11 @@ R2 = 33e3 # second divider bridge resistor
 ADC1_PIN = const(35) # Measure of analog voltage (ex: battery voltage following)
 DIV = R2 / (R1 + R2) # (R2 / R1 + R2) -> V_meas = V(R1 + R2); V_adc = V(R2)  
 AVERAGING = const(10)                # no. of samples for averaging
-ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibrated")
-# set ADC result width
-ubatt.width(ADC.WIDTH_12BIT)
-# set attenuation
-ubatt.atten(ADC.ATTN_6DB)
+# ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibrated")
+# # set ADC result width
+# ubatt.width(ADC.WIDTH_12BIT)
+# # set attenuation
+# ubatt.atten(ADC.ATTN_6DB)
 # battery
 UBAT_100 = 4.2
 UBAT_0 = 3.5
@@ -265,10 +250,10 @@ class BleJmbSensor:
                 
     def config_read_conn_info(self):
         
-        self._addr_type = int(cp.get('UART', 'ADDR_TYPE'))
-        self._addr = self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
-        self._name = cp.get('UART', 'NAME').replace('\n', '')
-        self._rx_handle = int(cp.get('UART', 'RX_HANDLE'))
+        self._addr_type = 0 #int(cp.get('UART', 'ADDR_TYPE'))
+        self._addr = self.asc_to_bytes('7c9ebd3dd6b6') #self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
+        self._name = 'jmb_central_01' #cp.get('UART', 'NAME').replace('\n', '')
+        self._rx_handle = 24 #int(cp.get('UART', 'RX_HANDLE'))
         
     # Connect to the specified device (otherwise use cached address from a scan).
     def connect(self, scan_duration_ms=500): 
@@ -350,19 +335,24 @@ def main():
             temp = 22.2
             hum = 55.5
             pres = 999
-            bat = 4.44
+#             bat = 4.44
         else:
             temp = float(bmeX.temperature)
             hum = float(bmeX.humidity)
             pres = float(bmeX.pressure)
-            bat = float(ubatt.voltage/1000)
-            bat1 = float(pot.read() * (2 / 4095) / DIV)
+#             bat = float(ubatt.voltage/1000)
         if DEBUG_MES_EXEC_TIME: mes.time_step('sensor read')
             
-        msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat1)
+        bat = 0
+        for a in range(AVERAGING):
+            bat += pot.read()  
+        bat = bat / AVERAGING * (2 / 4095) / DIV
+        if DEBUG_MES_EXEC_TIME: mes.time_step('U bat read')
+            
+        msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
         crc_val = encode_decode.get_crc(msg)
         msg += crc_val
-        if DEBUG_MES_EXEC_TIME: mes.time_step('encode sensor measure')
+        if DEBUG_MES_EXEC_TIME: mes.time_step('encode measures')
         
         #connect to the central
 #         sensor.connect(sensor._addr_type, sensor._addr)
