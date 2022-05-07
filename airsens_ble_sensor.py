@@ -51,14 +51,14 @@ v0.1.35.ppk : 26.04.2022 --> try to reduce exec time
 v0.1.36 : 03.05.2022 --> limit import to necessary
 v0.1.37 : 06.05.2022 --> simplified ADC measure (without calibration)
 """
-VERSION = '0.1.36'
+VERSION = '0.1.37'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
 
 DEBUG_MES_EXEC_TIME = True
-# if DEBUG_MES_EXEC_TIME:
-from lib.exec_time_mes import exec_time_mes
-mes = exec_time_mes(stat_mes = False)
-mes.time_step('start')
+if DEBUG_MES_EXEC_TIME:
+    from lib.exec_time_mes import exec_time_mes
+    mes = exec_time_mes(stat_mes=False)
+    mes.time_step('start')
 
 ON_BATTERY = True
 
@@ -157,10 +157,10 @@ BM_SCL_pin = 22
 # if DEBUG_MES_EXEC_TIME: mes.time_step('uC config')
 
 # analog voltage measurement
-R1 = 100e3 # first divider bridge resistor
-R2 = 33e3 # second divider bridge resistor
+R1 = 100000 # first divider bridge resistor
+R2 = 33000 # second divider bridge resistor
 ADC1_PIN = const(35) # Measure of analog voltage (ex: battery voltage following)
-DIV = R2 / (R1 + R2) # (R2 / R1 + R2) -> V_meas = V(R1 + R2); V_adc = V(R2)  
+DIV = R2 / (R1 + R2) # (R2 / R1 + R2) 
 AVERAGING = const(10)                # no. of samples for averaging
 # ubatt = ADC1Cal(Pin(ADC1_PIN, Pin.IN), DIV, None, AVERAGING, "ADC1 eFuse Calibrated")
 # # set ADC result width
@@ -172,19 +172,16 @@ UBAT_100 = 4.2
 UBAT_0 = 3.5
 
 pot = ADC(Pin(ADC1_PIN))            
-pot.atten(ADC.ATTN_6DB)
-pot.width(ADC.WIDTH_12BIT)
-
-if DEBUG_MES_EXEC_TIME: mes.time_step('analog config')
+pot.atten(ADC.ATTN_6DB ) # Umax = 2V
+pot.width(ADC.WIDTH_12BIT) # 0 ... 4095
 
 # IRQ constants
 _IRQ_PERIPHERAL_CONNECT = const(7)
 _IRQ_PERIPHERAL_DISCONNECT = const(8)
-_IRQ_GATTC_SERVICE_RESULT = const(9)
 _IRQ_GATTC_SERVICE_DONE = const(10)
-_IRQ_GATTC_CHARACTERISTIC_RESULT = const(11)
-_IRQ_GATTC_CHARACTERISTIC_DONE = const(12)
 _IRQ_GATTC_WRITE_DONE = const(17)
+
+if DEBUG_MES_EXEC_TIME: mes.time_step('analog config')
 
 class BleJmbSensor:
     def __init__(self, ble):
@@ -300,8 +297,9 @@ def main():
 #     try:
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
-        i = log.counters('passe', True)
         if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
+        i = log.counters('passe', True)
+        if DEBUG_MES_EXEC_TIME: mes.time_step('log init')
 
         # instanciation of bme280, bmex80 - Pin assignment
         i2c = SoftI2C(scl=Pin(BM_SCL_pin), sda=Pin(BM_SDA_PIN), freq=10000)
@@ -346,8 +344,11 @@ def main():
             
         bat = 0
         for a in range(AVERAGING):
-            bat += pot.read()  
+            bat += pot.read()
+        # atten = 6dB ==> u max = 2V
+        # width = 12 bits ==> 0 ... 4095
         bat = bat / AVERAGING * (2 / 4095) / DIV
+        print('Ubat:', '{:.2f}'.format(bat))
         if DEBUG_MES_EXEC_TIME: mes.time_step('U bat read')
             
         msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
@@ -382,9 +383,13 @@ def main():
         if bat > (0.98 * UBAT_0) or not ON_BATTERY:
             # finishing tasks
 #             if DEBUG_MES_EXEC_TIME: mes.time_step('stop')
-            mes.time_step('stop')
-            t_deepsleep = max(T_DEEPSLEEP_MS - mes._total_time, 10)
-            print('passe', i, '- error count:', log.counters('error'),'-->',  str(mes._total_time) + 'ms', )
+            if DEBUG_MES_EXEC_TIME:
+                mes.time_step('stop')
+                t_deepsleep = max(T_DEEPSLEEP_MS - mes._total_time, 10)
+                print('passe', i, '- error count:', log.counters('error'),'-->',  str(mes._total_time) + 'ms')
+            else:
+                t_deepsleep = T_DEEPSLEEP_MS
+                print('passe', i, '- error count:', log.counters('error'))
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
             deepsleep(t_deepsleep)
