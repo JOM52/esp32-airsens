@@ -74,10 +74,12 @@ class exec_time_mes:
                             step_time = '{:.0f}'.format(float(value) - old_time)
                             data += step_time + ';'
                             old_time = float(value)
-                        total_time = '{:.0f}'.format(float(value) - self._start_time)
-                        data += total_time
                         txt = data + '\n'
                         f_stat.write(txt)
+                        
+                    
+                        
+                    
         else:
             self._time_list.append(step + ':' + str(ticks_ms()))
             self._old_time = ticks_ms()

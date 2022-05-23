@@ -54,20 +54,46 @@ v0.1.37 : 06.05.2022 --> simplified ADC measure (without calibration)
 VERSION = '0.1.37'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
 
+from machine import Pin, freq
+freq(160000000)
+
+# Nordic Power Profiler Kkit II logic chanels
+PPK_0_PIN = 5
+PPK_1_PIN = 25
+PPK_2_PIN = 32
+PPK_3_PIN = 26
+PPK_4_PIN = 4
+PPK_5_PIN = 33
+
+PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
+PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
+PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
+PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
+PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
+PPK_5 = Pin(PPK_5_PIN, Pin.OUT)
+
+PPK_0.off()
+PPK_1.off()
+PPK_2.off()
+PPK_3.off()
+PPK_4.off()
+PPK_5.off()
+
 DEBUG_MES_EXEC_TIME = True
 if DEBUG_MES_EXEC_TIME:
     from lib.exec_time_mes import exec_time_mes
-    mes = exec_time_mes(stat_mes=False)
+    mes = exec_time_mes(stat_mes=True)
     mes.time_step('start')
 
 ON_BATTERY = True
 
 from utime import sleep_ms
 from bluetooth import BLE
-from machine import Pin, ADC, reset, SoftI2C, deepsleep
+from machine import ADC, reset, SoftI2C, deepsleep
 from ubinascii import unhexlify
 from sys import exit
 from micropython import const
+
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
 
 # from lib.adc1_cal import ADC1Cal
@@ -294,7 +320,7 @@ class BleJmbSensor:
             reset()
 
 def main():
-#     try:
+    try:
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
         if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
@@ -348,7 +374,7 @@ def main():
         # atten = 6dB ==> u max = 2V
         # width = 12 bits ==> 0 ... 4095
         bat = bat / AVERAGING * (2 / 4095) / DIV
-        print('Ubat:', '{:.2f}'.format(bat))
+#         print('Ubat:', '{:.2f}'.format(bat))
         if DEBUG_MES_EXEC_TIME: mes.time_step('U bat read')
             
         msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
@@ -398,11 +424,11 @@ def main():
             if DEBUG_MES_EXEC_TIME: mes.time_step('endless deepsleep due to low battery')
             deepsleep()
         
-#     except Exception as e:
-#         log.counters('error', True)
-#         log.log_error('Main program error', e)
-#         sleep_ms(2000)
-#         reset()
+    except Exception as e:
+        log.counters('error', True)
+        log.log_error('Main program error', e)
+        sleep_ms(2000)
+        reset()
 
 if __name__ == "__main__":
     main()
