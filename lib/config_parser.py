@@ -13,7 +13,7 @@ github: https://github.com/jom52/esp32-airsens
 
 Minimal and functional version of CPython's ConfigParser module.v0.1.0 : 27.01.2022 --> first prototype
 v0.1.1 : 08.03.2022 --> first draft
-v0.1.2 : 25.05.2022 --> added error management on opening airsens.conf file
+v0.1.2 : 25.05.2022 --> added error management on opening airsens.conf file 
 """
 import sys
 

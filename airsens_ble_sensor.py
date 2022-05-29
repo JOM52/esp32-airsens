@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-file: airsens_ble_sensor.py 
+file: airsens_ble_sensor.py  
 
 author: jom52
 email: jom52.dev@gmail.com
