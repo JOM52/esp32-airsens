@@ -50,19 +50,30 @@ v0.1.34.ppk : 22.04.2022 --> revision off exec time measurement
 v0.1.35.ppk : 26.04.2022 --> try to reduce exec time
 v0.1.36 : 03.05.2022 --> limit import to necessary
 v0.1.37 : 06.05.2022 --> simplified ADC measure (without calibration)
+v0.1.38 : 25.05.2022 --> added LED_I0 and LED_I1 for status info
+v0.1.39 : 29.05.2022 --> added TOUCH_0 IO12
+v0.1.40 : 29.05.2022 --> added wake_on_touch IO13
 """
-VERSION = '0.1.37'
+VERSION = '0.1.40'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
 
-from machine import Pin, freq
+from machine import Pin, freq, TouchPad
+from esp32 import wake_on_touch
 freq(160000000)
 
 # Nordic Power Profiler Kkit II logic chanels
-PPK_0_PIN = 5
+# PPK_0_PIN = 5
+# PPK_1_PIN = 25
+# PPK_2_PIN = 32
+# PPK_3_PIN = 26
+# PPK_4_PIN = 4
+# PPK_5_PIN = 33
+# p01
+PPK_0_PIN = 14 
 PPK_1_PIN = 25
-PPK_2_PIN = 32
-PPK_3_PIN = 26
-PPK_4_PIN = 4
+PPK_2_PIN = 26
+PPK_3_PIN = 27
+PPK_4_PIN = 32
 PPK_5_PIN = 33
 
 PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
@@ -79,10 +90,45 @@ PPK_3.off()
 PPK_4.off()
 PPK_5.off()
 
+PPK_0.on()
+PPK_1.on()
+PPK_2.on()
+PPK_3.on()
+PPK_4.on()
+PPK_5.on()
+
+PPK_0.off()
+PPK_1.off()
+PPK_2.off()
+PPK_3.off()
+PPK_4.off()
+PPK_5.off()
+
+LED_I0_PIN = 4
+LED_I1_PIN = 5
+LED_I0 = Pin(LED_I0_PIN, Pin.OUT)
+LED_I1 = Pin(LED_I1_PIN, Pin.OUT)
+LED_I0.off()
+LED_I1.off()
+LED_I0.on()
+LED_I1.on()
+
+# TOUCH
+TOUCH_0_PIN = 12
+TOUCH_0 = TouchPad(Pin(TOUCH_0_PIN))
+TOUCH_0_VAL = TOUCH_0.read()
+# print('TOUCH_0_VAL:', TOUCH_0_VAL)
+
+# wake on touch
+TOUCH_WAKE_PIN = 13
+TOUCH_WAKE = TouchPad(Pin(TOUCH_WAKE_PIN, mode = Pin.IN))
+TOUCH_WAKE.config(500)
+wake_on_touch(True)
+
 DEBUG_MES_EXEC_TIME = True
 if DEBUG_MES_EXEC_TIME:
     from lib.exec_time_mes import exec_time_mes
-    mes = exec_time_mes(stat_mes=True)
+    mes = exec_time_mes(stat_mes=False)
     mes.time_step('start')
 
 ON_BATTERY = True
@@ -119,19 +165,19 @@ SENSOR_ID = None
 T_DEEPSLEEP_MS = None
 
 # read options in airsens.conf
-# from lib.config_parser import ConfigParser
-# conf_filename = 'airsens.conf'
-# cp = ConfigParser()
-# if DEBUG_MES_EXEC_TIME: mes.time_step('conf import')
-# 
-# cp.read(conf_filename)
-# 
-# if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
+from lib.config_parser import ConfigParser
+conf_filename = 'airsens.conf'
+cp = ConfigParser()
+if DEBUG_MES_EXEC_TIME: mes.time_step('conf import')
+
+cp.read(conf_filename)
+
+if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
 
 CONNECTED_SENSOR_TYPE = 'BME280'
 MICROCONTROLER = 'WEMOS'
 SENSOR_ID = 'ex'
-T_DEEPSLEEP_MS = 10000
+T_DEEPSLEEP_MS = 30000
 # if DEBUG_MES_EXEC_TIME: mes.time_step('conf read values')
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
@@ -194,8 +240,8 @@ AVERAGING = const(10)                # no. of samples for averaging
 # # set attenuation
 # ubatt.atten(ADC.ATTN_6DB)
 # battery
-UBAT_100 = 4.2
-UBAT_0 = 3.5
+UBAT_100 = 3.0
+UBAT_0 = 2.5
 
 pot = ADC(Pin(ADC1_PIN))            
 pot.atten(ADC.ATTN_6DB ) # Umax = 2V
@@ -274,11 +320,16 @@ class BleJmbSensor:
                 
     def config_read_conn_info(self):
         
-        self._addr_type = 0 #int(cp.get('UART', 'ADDR_TYPE'))
-        self._addr = self.asc_to_bytes('7c9ebd3dd6b6') #self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
-        self._name = 'jmb_central_01' #cp.get('UART', 'NAME').replace('\n', '')
-        self._rx_handle = 24 #int(cp.get('UART', 'RX_HANDLE'))
-        
+#         self._addr_type = 0 #int(cp.get('UART', 'ADDR_TYPE'))
+#         self._addr = self.asc_to_bytes('84cca85f4a82') #self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
+#         self._name = 'jmb_central_01' #cp.get('UART', 'NAME').replace('\n', '')
+#         self._rx_handle = 24 #int(cp.get('UART', 'RX_HANDLE'))
+
+        self._addr_type = int(cp.get('UART', 'ADDR_TYPE'))
+        self._addr = self.asc_to_bytes(cp.get('UART', 'ADDR').replace('\n', '')) 
+        self._name = cp.get('UART', 'NAME').replace('\n', '')
+        self._rx_handle = int(cp.get('UART', 'RX_HANDLE'))
+
     # Connect to the specified device (otherwise use cached address from a scan).
     def connect(self, scan_duration_ms=500): 
         self._ble.gap_connect(self._addr_type, self._addr)
@@ -320,7 +371,7 @@ class BleJmbSensor:
             reset()
 
 def main():
-    try:
+#     try:
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
         if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
@@ -422,13 +473,13 @@ def main():
         else:
             print('Endless deepsleep due to low battery')
             if DEBUG_MES_EXEC_TIME: mes.time_step('endless deepsleep due to low battery')
-            deepsleep()
+#             deepsleep()
         
-    except Exception as e:
-        log.counters('error', True)
-        log.log_error('Main program error', e)
-        sleep_ms(2000)
-        reset()
+#     except Exception as e:
+#         log.counters('error', True)
+#         log.log_error('Main program error', e)
+#         sleep_ms(2000)
+#         reset()
 
 if __name__ == "__main__":
     main()
