@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-file: airsens_ble_sensor.py  
+file: airsens_ble_sensor.py 
 
 author: jom52
 email: jom52.dev@gmail.com
@@ -53,6 +53,14 @@ v0.1.37 : 06.05.2022 --> simplified ADC measure (without calibration)
 v0.1.38 : 25.05.2022 --> added LED_I0 and LED_I1 for status info
 v0.1.39 : 29.05.2022 --> added TOUCH_0 IO12
 v0.1.40 : 29.05.2022 --> added wake_on_touch IO13
+v0.1.41 : 01.06.2022 --> ppk logic signals included
+                            before ppk0: system loading
+                            ppk0: const init and standard import
+                            ppk1: lib import and class instatiation (encode_decode, log_and_count, config_parser)
+                            ppk2: class instantiation (I2C, Sensor, BLE)
+                            ppk3: sensor and bat measurement
+                            ppk4: encode and sens message on BLE
+                            ppk5: finishing actions
 """
 VERSION = '0.1.40'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
@@ -61,62 +69,51 @@ from machine import Pin, freq, TouchPad
 from esp32 import wake_on_touch
 freq(160000000)
 
-# Nordic Power Profiler Kkit II logic chanels
+# Nordic Power Profiler Kkit II logic chanels p01
 # PPK_0_PIN = 5
 # PPK_1_PIN = 25
 # PPK_2_PIN = 32
 # PPK_3_PIN = 26
 # PPK_4_PIN = 4
 # PPK_5_PIN = 33
-# p01
+# p02
 PPK_0_PIN = 14 
+PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
+# ppk logics signals ------------------------
+PPK_0.on() # const init and standard import
+#--------------------------------------------
+
 PPK_1_PIN = 25
 PPK_2_PIN = 26
 PPK_3_PIN = 27
 PPK_4_PIN = 32
 PPK_5_PIN = 33
 
-PPK_0 = Pin(PPK_0_PIN, Pin.OUT)
 PPK_1 = Pin(PPK_1_PIN, Pin.OUT)
 PPK_2 = Pin(PPK_2_PIN, Pin.OUT)
 PPK_3 = Pin(PPK_3_PIN, Pin.OUT)
 PPK_4 = Pin(PPK_4_PIN, Pin.OUT)
 PPK_5 = Pin(PPK_5_PIN, Pin.OUT)
 
-PPK_0.off()
 PPK_1.off()
 PPK_2.off()
 PPK_3.off()
 PPK_4.off()
 PPK_5.off()
 
-PPK_0.on()
-PPK_1.on()
-PPK_2.on()
-PPK_3.on()
-PPK_4.on()
-PPK_5.on()
-
-PPK_0.off()
-PPK_1.off()
-PPK_2.off()
-PPK_3.off()
-PPK_4.off()
-PPK_5.off()
-
-LED_I0_PIN = 4
-LED_I1_PIN = 5
-LED_I0 = Pin(LED_I0_PIN, Pin.OUT)
-LED_I1 = Pin(LED_I1_PIN, Pin.OUT)
-LED_I0.off()
-LED_I1.off()
-LED_I0.on()
-LED_I1.on()
+# LED_I0_PIN = 4
+# LED_I1_PIN = 5
+# LED_I0 = Pin(LED_I0_PIN, Pin.OUT)
+# LED_I1 = Pin(LED_I1_PIN, Pin.OUT)
+# LED_I0.off()
+# LED_I1.off()
+# LED_I0.on()
+# LED_I1.on()
 
 # TOUCH
-TOUCH_0_PIN = 12
-TOUCH_0 = TouchPad(Pin(TOUCH_0_PIN))
-TOUCH_0_VAL = TOUCH_0.read()
+# TOUCH_0_PIN = 12
+# TOUCH_0 = TouchPad(Pin(TOUCH_0_PIN))
+# TOUCH_0_VAL = TOUCH_0.read()
 # print('TOUCH_0_VAL:', TOUCH_0_VAL)
 
 # wake on touch
@@ -125,7 +122,7 @@ TOUCH_WAKE = TouchPad(Pin(TOUCH_WAKE_PIN, mode = Pin.IN))
 TOUCH_WAKE.config(500)
 wake_on_touch(True)
 
-DEBUG_MES_EXEC_TIME = True
+DEBUG_MES_EXEC_TIME = False
 if DEBUG_MES_EXEC_TIME:
     from lib.exec_time_mes import exec_time_mes
     mes = exec_time_mes(stat_mes=False)
@@ -141,6 +138,11 @@ from sys import exit
 from micropython import const
 
 if DEBUG_MES_EXEC_TIME: mes.time_step('standard import')
+
+# ppk logics signals ------------------------
+PPK_0.off()
+PPK_1.on() # lib import and class instantiation
+#--------------------------------------------
 
 # from lib.adc1_cal import ADC1Cal
 # if DEBUG_MES_EXEC_TIME: mes.time_step('lib import ADC1Cal')
@@ -176,8 +178,8 @@ if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
 
 CONNECTED_SENSOR_TYPE = 'BME280'
 MICROCONTROLER = 'WEMOS'
-SENSOR_ID = 'ex'
-T_DEEPSLEEP_MS = 30000
+SENSOR_ID = 'pi'
+T_DEEPSLEEP_MS = 15000
 # if DEBUG_MES_EXEC_TIME: mes.time_step('conf read values')
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
@@ -372,6 +374,11 @@ class BleJmbSensor:
 
 def main():
 #     try:
+
+        # ppk logics signals ------------------------
+        PPK_1.off()
+        PPK_2.on() # class instantiation (I2C, Sensor, BLE)
+        #--------------------------------------------
         print('=================================================')
         print(PROGRAM_NAME + ' - Version:' + VERSION)
         if DEBUG_MES_EXEC_TIME: mes.time_step('entering main')
@@ -399,6 +406,11 @@ def main():
         sensor = BleJmbSensor(ble)
         if DEBUG_MES_EXEC_TIME: mes.time_step('ble class initialise')
         
+        # ppk logics signals ------------------------
+        PPK_2.off()
+        PPK_3.on() # sensor and bat measurement
+        #--------------------------------------------
+
         # read and initialise variable from config file
         sensor.config_read_conn_info()
         
@@ -427,6 +439,11 @@ def main():
         bat = bat / AVERAGING * (2 / 4095) / DIV
 #         print('Ubat:', '{:.2f}'.format(bat))
         if DEBUG_MES_EXEC_TIME: mes.time_step('U bat read')
+        
+        # ppk logics signals ------------------------
+        PPK_3.off()
+        PPK_4.on() # encode and sens message on BLE
+        #--------------------------------------------
             
         msg = encode_decode.encode_msg('jmb', SENSOR_ID, temp, hum, pres, bat)
         crc_val = encode_decode.get_crc(msg)
@@ -455,6 +472,11 @@ def main():
         while not sensor._irq_peripheral_disconnect:
             pass
         if DEBUG_MES_EXEC_TIME: mes.time_step('central disconnect')
+        
+        # ppk logics signals ------------------------
+        PPK_4.off()
+        PPK_5.on() # finishing actions
+        #--------------------------------------------
 
         # check the level of the battery
         if bat > (0.98 * UBAT_0) or not ON_BATTERY:
@@ -469,11 +491,16 @@ def main():
                 print('passe', i, '- error count:', log.counters('error'))
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
+        
+            # ppk logics signals ------------------------
+            PPK_5.off() # program terminated
+            #--------------------------------------------
+            
             deepsleep(t_deepsleep)
         else:
             print('Endless deepsleep due to low battery')
             if DEBUG_MES_EXEC_TIME: mes.time_step('endless deepsleep due to low battery')
-#             deepsleep()
+            deepsleep()
         
 #     except Exception as e:
 #         log.counters('error', True)

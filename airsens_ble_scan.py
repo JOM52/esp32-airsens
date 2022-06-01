@@ -11,7 +11,7 @@ github: https://github.com/jom52/esp32-airsens
 this program scans the bluetooth network to find all the *ble_central* whose name starts with *jmb_*
 and lets the user choose the server they want to work with.
 
-informations are saved in the config_uart.txt file and then
+informations are saved in the .txt file and then
 used by the esp32_airsens_sensor.py program to connect to the central.
 
 v0.1.0 : 07.01.2022 --> first prototype
@@ -21,6 +21,7 @@ v0.1.3 : 22.02.2022 --> config.txt renamed to config_uart.txt
 v0.1.4 : 08.02.2022 --> improved the user's selection
 v0.1.5 : 14.02.2022 --> error on user selection corrected
 v0.1.6 : 08.03.2022 --> use of config_parser
+v0.1.7: 01.06.2022 --> comment all lines how have something to do with config_uart
 """
 VERSION = '0.1.6'
 PROGRAM_NAME = 'airsens_ble_scan.py'
@@ -207,12 +208,12 @@ class BleAirsensScan:
         self._ble.gap_disconnect(self._conn_handle)
         self._irq_peripheral_disconnect = True
                 
-    def config_write_conn_info(self, data):
-        with open ('config_uart.txt', 'w') as f:
-            if data:
-                f.write(data)
-            else:
-                f.write('')
+#     def config_write_conn_info(self, data):
+#         with open ('config_uart.txt', 'w') as f:
+#             if data:
+#                 f.write(data)
+#             else:
+#                 f.write('')
                 
     def config_parse_conn_info(self, addr_type, addr, adv_type, rssi, name, conn_handle, start_handle, end_handle, tx_handle, rx_handle):
         
@@ -330,7 +331,7 @@ def main():
             config_txt += 'end_handle:' + end_handle + '\n'
             config_txt += 'tx_handle:' + tx_handle + '\n'
             config_txt += 'rx_handle:' + rx_handle + '\n'
-            ble_scan.config_write_conn_info(config_txt)
+#             ble_scan.config_write_conn_info(config_txt)
             
 
             print('-------------------------------------------------------')
@@ -339,7 +340,7 @@ def main():
             print('-------------------------------------------------------')
         else:
             print('choix compris entre 0 et ' + str(nb))
-            with open('config_uart.txt', 'w'): pass
+#             with open('config_uart.txt', 'w'): pass
             print('le programme s\'arrete ici')
     else:
         print('no central found')
