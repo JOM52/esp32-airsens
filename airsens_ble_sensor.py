@@ -61,8 +61,10 @@ v0.1.41 : 01.06.2022 --> ppk logic signals included
                             ppk3: sensor and bat measurement
                             ppk4: encode and sens message on BLE
                             ppk5: finishing actions
+v0.1.42.test : 02.06.2022 --> try to filter measures
+v0.1.43 : 03.06.2022 --> add error management in disconnect
 """
-VERSION = '0.1.40'
+VERSION = '0.1.43'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
 
 from machine import Pin, freq, TouchPad
@@ -178,7 +180,7 @@ if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
 
 CONNECTED_SENSOR_TYPE = 'BME280'
 MICROCONTROLER = 'WEMOS'
-SENSOR_ID = 'pi'
+SENSOR_ID = 'p2'
 T_DEEPSLEEP_MS = 15000
 # if DEBUG_MES_EXEC_TIME: mes.time_step('conf read values')
 
@@ -243,7 +245,7 @@ AVERAGING = const(10)                # no. of samples for averaging
 # ubatt.atten(ADC.ATTN_6DB)
 # battery
 UBAT_100 = 3.0
-UBAT_0 = 2.5
+UBAT_0 = 2.0
 
 pot = ADC(Pin(ADC1_PIN))            
 pot.atten(ADC.ATTN_6DB ) # Umax = 2V
@@ -339,8 +341,13 @@ class BleJmbSensor:
 
     # Disconnect from current device.
     def disconnect(self):
-        self._ble.gap_disconnect(self._conn_handle)
-        self._reset()
+        try:
+            self._ble.gap_disconnect(self._conn_handle)
+            self._reset()
+        except Exception as err:
+            log.counters('error', True) # increment error counter
+            log.log_error('Disconnect from current device error --> reset()', err)
+            reset()
 
     # Send data over the UART
     def write(self, v, i):
@@ -425,10 +432,20 @@ def main():
             pres = 999
 #             bat = 4.44
         else:
-            temp = float(bmeX.temperature)
-            hum = float(bmeX.humidity)
-            pres = float(bmeX.pressure)
-#             bat = float(ubatt.voltage/1000)
+#             temp = float(bmeX.temperature)
+#             hum = float(bmeX.humidity)
+#             pres = float(bmeX.pressure)
+
+            temp = 0
+            hum = 0
+            pres = 0
+            for a in range(AVERAGING):
+                temp += float(bmeX.temperature)
+                hum += float(bmeX.humidity)
+                pres += float(bmeX.pressure)
+            temp = temp / AVERAGING
+            hum = hum / AVERAGING
+            pres = pres / AVERAGING
         if DEBUG_MES_EXEC_TIME: mes.time_step('sensor read')
             
         bat = 0
