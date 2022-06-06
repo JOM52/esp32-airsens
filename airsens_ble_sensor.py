@@ -63,9 +63,26 @@ v0.1.41 : 01.06.2022 --> ppk logic signals included
                             ppk5: finishing actions
 v0.1.42.test : 02.06.2022 --> try to filter measures
 v0.1.43 : 03.06.2022 --> add error management in disconnect
+v0.1.44 : 03.06.2022 --> replaced all 'reset()' with 'deepsleep(t_deepsleep)'
+                     --> one measure get lost --> we dont try to repeat it indefintively --> battery saving
+v0.1.45 : 03.06.2022 --> error management in write (write data on uart) impoved
+v0.1.46 : 04.06.2022 --> added led's management and parameters on the top of the program
 """
-VERSION = '0.1.43'
+
+# PARAMETERS ========================================
+VERSION = '0.1.46'
 PROGRAM_NAME = 'airsens_ble_sensor.py'
+SENSOR_ID_x = 'p2'
+T_DEEPSLEEP_MS_x = 15000
+DEBUG_MES_EXEC_TIME = True
+DEBUG_MES_EXEC_TIME_STAT = False
+ON_BATTERY = True
+#====================================================
+
+if DEBUG_MES_EXEC_TIME:
+    from lib.exec_time_mes import exec_time_mes
+    mes = exec_time_mes(stat_mes=DEBUG_MES_EXEC_TIME_STAT)
+    mes.time_step('start')
 
 from machine import Pin, freq, TouchPad
 from esp32 import wake_on_touch
@@ -103,19 +120,26 @@ PPK_3.off()
 PPK_4.off()
 PPK_5.off()
 
-# LED_I0_PIN = 4
-# LED_I1_PIN = 5
-# LED_I0 = Pin(LED_I0_PIN, Pin.OUT)
-# LED_I1 = Pin(LED_I1_PIN, Pin.OUT)
-# LED_I0.off()
-# LED_I1.off()
-# LED_I0.on()
-# LED_I1.on()
+# LED's for debug
+BLUE_LED_PIN = 2
+RED_LED_PIN = 4
+GREEN_LED_PIN = 5
+BLUE_LED = Pin(BLUE_LED_PIN, Pin.OUT)
+RED_LED = Pin(RED_LED_PIN, Pin.OUT)
+GREEN_LED = Pin(GREEN_LED_PIN, Pin.OUT)
+
+BLUE_LED.off()
+RED_LED.off()
+GREEN_LED.off()
+
+BLUE_LED.on()
+RED_LED.on()
+GREEN_LED.on()
 
 # TOUCH
-# TOUCH_0_PIN = 12
-# TOUCH_0 = TouchPad(Pin(TOUCH_0_PIN))
-# TOUCH_0_VAL = TOUCH_0.read()
+TOUCH_0_PIN = 12
+TOUCH_0 = TouchPad(Pin(TOUCH_0_PIN))
+TOUCH_0_VAL = TOUCH_0.read()
 # print('TOUCH_0_VAL:', TOUCH_0_VAL)
 
 # wake on touch
@@ -123,14 +147,6 @@ TOUCH_WAKE_PIN = 13
 TOUCH_WAKE = TouchPad(Pin(TOUCH_WAKE_PIN, mode = Pin.IN))
 TOUCH_WAKE.config(500)
 wake_on_touch(True)
-
-DEBUG_MES_EXEC_TIME = False
-if DEBUG_MES_EXEC_TIME:
-    from lib.exec_time_mes import exec_time_mes
-    mes = exec_time_mes(stat_mes=False)
-    mes.time_step('start')
-
-ON_BATTERY = True
 
 from utime import sleep_ms
 from bluetooth import BLE
@@ -180,8 +196,8 @@ if DEBUG_MES_EXEC_TIME: mes.time_step('conf read file')
 
 CONNECTED_SENSOR_TYPE = 'BME280'
 MICROCONTROLER = 'WEMOS'
-SENSOR_ID = 'p2'
-T_DEEPSLEEP_MS = 15000
+SENSOR_ID = SENSOR_ID_x #'ts'
+T_DEEPSLEEP_MS = T_DEEPSLEEP_MS_x #15000
 # if DEBUG_MES_EXEC_TIME: mes.time_step('conf read values')
 
 if CONNECTED_SENSOR_TYPE == 'BME280':
@@ -297,7 +313,7 @@ class BleJmbSensor:
             conn_handle, _, _ = data
             if conn_handle == 65535:
                 log.log_error('Central is not running')
-                reset()
+                deepsleep(T_DEEPSLEEP_MS)
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
             self._irq_service_done = True
@@ -346,38 +362,62 @@ class BleJmbSensor:
             self._reset()
         except Exception as err:
             log.counters('error', True) # increment error counter
-            log.log_error('Disconnect from current device error --> reset()', err)
-            reset()
+            log.log_error('Disconnect from current device error')
+            deepsleep(T_DEEPSLEEP_MS)
 
     # Send data over the UART
     def write(self, v, i):
-        n_tries = 5
+        n_tries_max = 5
+        n_tries = 0
         write_ok = False
         err = None
-        while n_tries > 0:
+        while n_tries < 5:
             try:
                 self._ble.gattc_write(self._conn_handle, self._rx_handle, v, 1)
-                n_tries = 0
+#                 a = 1/0
+                n_tries = n_tries_max
                 write_ok = True
-            except Exception as e:
-                err = e
+            except Exception as err:
+#                 err = e
                 try:
-                    log.log_error('Try to reconnect in write essai:' + str(n_tries-1), e)
-#                     self.connect(self._addr_type, self._addr)
+                    msg = 'Try to reconnect in write essai: ' + str(n_tries) + ' - ' + str(type(err)) + ' - "' + str(err) + '"'
+                    print(msg)
+                    log.log_error(msg)
                     self.connect()
                     while not self._irq_peripheral_connect or not self._irq_service_done:
                         pass
                 except:
-                    print('connect not possible')
-                    log.log_error('Connect not possible', err)
-                n_tries -= 1
-                print('n_tries:', n_tries)
+                    msg = 'Connection not possible' 
+                    print(msg)
+                    log.log_error(msg)
+                n_tries += 1
                 sleep_ms(500)
             
         if not write_ok:
             log.counters('error', True) # increment error counter
             log.log_error('Write on BLE UART error --> reset()', err)
-            reset()
+            print('going to deepsleep for ' + str(T_DEEPSLEEP_MS) + ' ms')
+            deepsleep(T_DEEPSLEEP_MS)
+
+##=================================================================
+#                     if isinstance(err, list):  
+#                         s = StringIO()
+#                         print_exception(err_info, s)
+#                         s1 = s.getvalue().replace('\n', '=+=')
+#                         s2 = s1.split('=+=')
+#                         s3 = s2[1].lstrip()
+#                         s4 = s2[2].lstrip()
+#                         msg = (s3 + ' - ' + s4 +' -> list' )
+#                     elif isinstance(err, str):
+#                         msg = (err + ' -> str')
+#                     else:
+#                         msg = (str(err) + ' -> else')
+#                     msg = msg.replace(':', '->')
+#                     print('--------------------------------------')
+#                     print('WRITE ERROR:', ' Error msg: ' + msg + ' ¦ Type(err): ' + str(type(err)))
+#                     log.log_error('WRITE ERROR:', ' Error msg: ' + msg + ' ¦ Type(err): ' + str(type(err)))
+#                     print('--------------------------------------')
+##=================================================================
 
 def main():
 #     try:
@@ -523,7 +563,7 @@ def main():
 #         log.counters('error', True)
 #         log.log_error('Main program error', e)
 #         sleep_ms(2000)
-#         reset()
+#         deepsleep(t_deepsleep)
 
 if __name__ == "__main__":
     main()
