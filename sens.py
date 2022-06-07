@@ -68,14 +68,15 @@ v0.1.44 : 03.06.2022 --> replaced all 'reset()' with 'deepsleep(t_deepsleep)'
 v0.1.45 : 03.06.2022 --> error management in write (write data on uart) impoved
 v0.1.46 : 04.06.2022 --> added led's management and parameters on the top of the program
 v0.1.46.min : 05.06.2022 --> reduce code to minimum to spare energy
-v0.1.47.min : 06.06.2022 --> modif to permit to "airsens_ble_scan.py" to modify UART params directly in "airsens_ble_sensor.py"
-v0.1.48.min : 07.06.2022 --> improved error management and small cosmetic changes
+v0.1.47.min : 06.06.2022 --> modif to permit to airsens_ble_scan to modify UART params
 """
 
 # PARAMETERS ========================================
-VERSION = '0.1.48.min'
+VERSION = '0.1.47.min'
 SENSOR_ID_x = 'p0'
 T_DEEPSLEEP_MS_x = 15000
+DEBUG_MES_EXEC_TIME = True
+DEBUG_MES_EXEC_TIME_STAT = False
 ON_BATTERY = True
 #----------------------------------------------------
 PARAM_UART_ADDR_x = '84cca85f4a82'
@@ -180,9 +181,7 @@ class BleJmbSensor:
             self._irq_peripheral_disconnect = True
             conn_handle, _, _ = data
             if conn_handle == 65535:
-                log.counters('error', True) # increment error counter
                 log.log_error('Central is not running')
-                print('=================================================')
                 deepsleep(T_DEEPSLEEP_MS)
         
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
@@ -207,7 +206,6 @@ class BleJmbSensor:
         except Exception as err:
             log.counters('error', True) # increment error counter
             log.log_error('Disconnect from current device error')
-            print('=================================================')
             deepsleep(T_DEEPSLEEP_MS)
 
     # Send data over the UART
@@ -223,19 +221,18 @@ class BleJmbSensor:
                 write_ok = True
             except Exception as err:
                 try:
-                    msg = 'Try to reconnect in write essai: ' + str(n_tries) + ' - n times:' + str(ret) + ' Error: ' + str(type(err)) + ' - "' + str(err) + '"'
-                    ret = log.log_error(msg)
+                    msg = 'Try to reconnect in write essai: ' + str(n_tries) + ' - ' + str(type(err)) + ' - "' + str(err) + '"'
                     print(msg)
+                    ret = log.log_error(msg)
+                    print(ret)
                     self.connect()
                     while not self._irq_peripheral_connect or not self._irq_service_done:
                         pass
                 except:
-                    log.counters('error', True) # increment error counter
                     msg = 'Connection not possible' 
+                    print(msg)
                     ret = log.log_error(msg)
-                    print(msg + ' - n times:' + str(ret))
-                    print('=================================================')
-                    deepsleep(T_DEEPSLEEP_MS)
+                    print(ret)
                 n_tries += 1
                 sleep_ms(500)
             
@@ -243,13 +240,12 @@ class BleJmbSensor:
             log.counters('error', True) # increment error counter
             log.log_error('Write on BLE UART error --> reset()', err)
             print('going to deepsleep for ' + str(T_DEEPSLEEP_MS) + ' ms')
-            print('=================================================')
             deepsleep(T_DEEPSLEEP_MS)
 
 def main():
     
-    try:
         t_deepsleep = T_DEEPSLEEP_MS
+#     try:
         print('=================================================')
         i = log.counters('passe', True)
 
@@ -301,10 +297,10 @@ def main():
 #             deepsleep()
             exit()
         
-    except Exception as e:
-        log.counters('error', True)
-        log.log_error('Main program error', e)
-        deepsleep(t_deepsleep)
+#     except Exception as e:
+#         log.counters('error', True)
+#         log.log_error('Main program error', e)
+#         deepsleep(t_deepsleep)
 
 if __name__ == "__main__":
     main()

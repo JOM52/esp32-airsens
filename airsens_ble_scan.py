@@ -22,16 +22,19 @@ v0.1.4 : 08.02.2022 --> improved the user's selection
 v0.1.5 : 14.02.2022 --> error on user selection corrected
 v0.1.6 : 08.03.2022 --> use of config_parser
 v0.1.7: 01.06.2022 --> comment all lines how have something to do with config_uart
+v0.1.8 : 07.06.2022 --> added copy of params direct in the "airsens_ble_sensor.py"
 """
-VERSION = '0.1.6'
+VERSION = '0.1.8'
 PROGRAM_NAME = 'airsens_ble_scan.py'
 
 import ubluetooth
 import ubinascii
 import utime
+import os
 from lib.ble_advertising import decode_name
 from lib.config_parser import ConfigParser
 conf_filename = 'airsens.conf'
+sensor_filename = 'airsens_ble_sensor_min.py'
 cp = ConfigParser()
 cp.read(conf_filename)
 
@@ -208,15 +211,33 @@ class BleAirsensScan:
         self._ble.gap_disconnect(self._conn_handle)
         self._irq_peripheral_disconnect = True
                 
-#     def config_write_conn_info(self, data):
-#         with open ('config_uart.txt', 'w') as f:
-#             if data:
-#                 f.write(data)
-#             else:
-#                 f.write('')
+    def put_param_in_sensor_prg(self, sce_file, param, value):
+    
+        # read the file
+        with open (sce_file, 'r') as f_sce:
+            content= f_sce.readlines()
+        # open the file in write mode
+        with open (sce_file, 'w') as f_dest:
+            # for each line
+            for l_sce in content:
+                # check if the line include "param"
+                if param in l_sce:
+                    # check if there is no spaces before the "param"
+                    if l_sce.index(param) == 0:
+                        parts = l_sce.replace(' ' , '').split('=')
+                        parts[1] = "'" + value + "'\r\n"
+                        f_dest.write(' = '.join(parts))
+                    # else write the line as it in the file
+                    else:
+                        f_dest.write(l_sce)
+                # else write the line as it in the file
+                else:
+                    f_dest.write(l_sce)
                 
     def config_parse_conn_info(self, addr_type, addr, adv_type, rssi, name, conn_handle, start_handle, end_handle, tx_handle, rx_handle):
         
+        # write the value in the airsens.conf file
+        print('Update ' + conf_filename + ' file')
         if cp.has_section('UART'):
             cp.remove_section('UART')
         cp.add_section('UART')
@@ -231,6 +252,19 @@ class BleAirsensScan:
         cp.add_option('UART', 'TX_HANDLE', tx_handle)
         cp.add_option('UART', 'RX_HANDLE', rx_handle)
         cp.write(conf_filename)
+
+        # write the value in the .py file
+        print('Update ' + sensor_filename + ' file')
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADDR_TYPE_x', addr_type)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADDR_x', addr)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADV_TYPE_x', adv_type)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_RSSI_x', rssi)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_NAME_x', name)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_CONN_HANDLE_x', conn_handle)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_START_HANDLE_x', start_handle)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_END_HANDLE_x', end_handle)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_TX_HANDLE_x', tx_handle)
+        self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_RX_HANDLE_x', rx_handle)
 
 
 def main():
