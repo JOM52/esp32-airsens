@@ -23,9 +23,10 @@ v0.1.5 : 14.02.2022 --> error on user selection corrected
 v0.1.6 : 08.03.2022 --> use of config_parser
 v0.1.7: 01.06.2022 --> comment all lines how have something to do with config_uart
 v0.1.8 : 07.06.2022 --> added copy of params direct in the "airsens_ble_sensor.py"
+v0.1.9 : 11.06.2022 --> small cosmetics changes 
 """
-VERSION = '0.1.8'
-PROGRAM_NAME = 'airsens_ble_scan.py'
+PRG_VERSION = '0.1.9'
+PRG_NAME = 'airsens_ble_scan.py'
 
 import ubluetooth
 import ubinascii
@@ -144,7 +145,6 @@ class BleAirsensScan:
                 self._gattc_service_result = True
 
         elif event == _IRQ_GATTC_SERVICE_DONE: #10
-            pass
             # Service query complete.
             self._gattc_service_timeout = False
             t_start = utime.ticks_ms()
@@ -254,7 +254,7 @@ class BleAirsensScan:
         cp.write(conf_filename)
 
         # write the value in the .py file
-        print('Update ' + sensor_filename + ' file')
+        print('Update ' + sensor_filename + ' file (should take few seconds)')
         self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADDR_TYPE_x', addr_type)
         self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADDR_x', addr)
         self.put_param_in_sensor_prg(sensor_filename, 'PARAM_UART_ADV_TYPE_x', adv_type)
@@ -269,7 +269,7 @@ class BleAirsensScan:
 
 def main():
     
-    print(PROGRAM_NAME + ' - Version:' + VERSION)
+    print(PRG_NAME + ' - Version:' + PRG_VERSION)
     print('initializing bluetooth')
     # instatiation of bluetooth.BLE
     ble = ubluetooth.BLE()

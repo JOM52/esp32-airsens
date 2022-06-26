@@ -542,7 +542,7 @@ def main():
             if DEBUG_MES_EXEC_TIME:
                 mes.time_step('stop')
                 t_deepsleep = max(T_DEEPSLEEP_MS - mes._total_time, 10)
-                print('passe', i, '- error count:', log.counters('error'),'-->',  str(mes._total_time) + 'ms')
+                print('passe', i, '- error count:', log.counters('error'), '-->',  str(mes._total_time) + 'ms')
             else:
                 t_deepsleep = T_DEEPSLEEP_MS
                 print('passe', i, '- error count:', log.counters('error'))

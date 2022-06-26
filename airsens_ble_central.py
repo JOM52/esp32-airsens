@@ -24,9 +24,10 @@ v0.1.10 : 23.02.2022 --> level of debug increased
 v0.1.11 : 23.02.2022 --> added line number and file in log_error
 v0.1.12 : 07.03.2022 --> wifi account as constant
 v0.1.13 : 09.03.2022 --> integration of config_parser.py
-v0.1.14 : 25.05.2022 --> added if DEBUG_YN: for debug print's 
+v0.1.14 : 25.05.2022 --> added if DEBUG_YN: for debug print's
+v0.1.15 : 22.06.2022 --> added error mangement in "connect_and_subscribe"
 """
-VERSION = '0.1.13'
+VERSION = '0.1.15'
 PROGRAM_NAME = 'airsens_ble_central.py'
 DEBUG_YN = False
 
@@ -231,12 +232,14 @@ class BLE():
                 if DEBUG_YN: print('err:', err)
        
     def connect_and_subscribe(self, broker_client_id, broker_ip, topic):
-        if DEBUG_YN: print('--> 10')        
-        client = umqttsimple.MQTTClient(broker_client_id, broker_ip)
-        client.connect(True)
-    #     print('Connected to %s MQTT broker, subscribed to %s topic' % (broker_ip, topic))
-        if DEBUG_YN: print('--> 11')        
-        return client
+        try:
+            client = umqttsimple.MQTTClient(broker_client_id, broker_ip)
+            client.connect(True)
+        #     print('Connected to %s MQTT broker, subscribed to %s topic' % (broker_ip, topic))
+            return client
+        except Exception as err:
+            log.counters('error', True)
+            log.log_error('connect_and_subscribe', err)
 
     # Nordic UART Service (NUS)       
     def register(self):        
@@ -276,9 +279,9 @@ def main():
         msg = "now date and time :" + datetime_formated 
         my_rtc = None
         print(msg)
-        print('-----------------------------------------------------------')
         print('central listening as <' + CENTRAL_NAME + '>')
         print('MQTT broker IP:' + BROKER_IP + ' topic: ' + TOPIC)
+        print('-----------------------------------------------------------')
         blue_led = Pin(2, Pin.OUT)
         ble = BLE(CENTRAL_NAME)
     except Exception as err:

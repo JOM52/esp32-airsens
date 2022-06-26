@@ -19,6 +19,7 @@ v0.1.5 : 05.02.2022 --> modified log and count to log the count of the same erro
 v0.1.6 : 08.02.2022 --> correction of error introduced in v0.1.5
 v0.1.7 : 08.02.2022 --> no more file error.txt. All counter in are now in the file counter.txt
 v0.1.8 : 23.02.2022 --> addd file name and line number on error
+v0.1.9 : 22.06.2022 --> log_error modified for 'more_info'
 """
 from sys import print_exception 
 
@@ -68,9 +69,23 @@ class LogAndCount:
             
             
     def log_error(self, err_info, more_info=''):
+        
         cpl = ""
         if more_info:
-            cpl = ' - ' + str(self.error_handling(more_info))
+            if isinstance(more_info, list):  
+                s = StringIO()
+                print_exception(more_info, s)
+                s1 = s.getvalue().replace('\n', '=+=')
+                s2 = s1.split('=+=')
+                s3 = s2[1].lstrip()
+                s4 = s2[2].lstrip()
+                # write and print the error message
+                cpl = s3 + ' - ' + s4
+            elif isinstance(more_info, str):
+                cpl = more_info
+            else:
+                cpl = str(more_info)
+                
         if isinstance(err_info, list):  
             s = StringIO()
             print_exception(err_info, s)
@@ -79,12 +94,14 @@ class LogAndCount:
             s3 = s2[1].lstrip()
             s4 = s2[2].lstrip()
             # write and print the error message
-            msg = (s3 + ' - ' + s4 + cpl)
+            msg = (s3 + ' - ' + s4 + ' - ' + cpl)
         elif isinstance(err_info, str):
-            msg = (err_info + cpl)
+            msg = (err_info + ' - ' + cpl)
         else:
-            msg = (str(err_info) + cpl)
+            msg = (str(err_info) + ' - ' + cpl)
+            
         msg = msg.replace(':', '->')
+        print('log_and_count --> ' + msg)
         
         return self.counters(msg, True)
     

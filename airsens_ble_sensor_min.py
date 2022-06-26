@@ -70,19 +70,27 @@ v0.1.46 : 04.06.2022 --> added led's management and parameters on the top of the
 v0.1.46.min : 05.06.2022 --> reduce code to minimum to spare energy
 v0.1.47.min : 06.06.2022 --> modif to permit to "airsens_ble_scan.py" to modify UART params directly in "airsens_ble_sensor.py"
 v0.1.48.min : 07.06.2022 --> improved error management and small cosmetic changes
+v1.0.49.min : 09.06.2022 --> small changes on error management
+v0.1.50.min : 11.06.2022 --> try to improve error management. Success ???
 """
 
 # PARAMETERS ========================================
-VERSION = '0.1.48.min'
-SENSOR_ID_x = 'p0'
-T_DEEPSLEEP_MS_x = 15000
-ON_BATTERY = True
+PRG_NAME = 'airsens_ble_sensor_min.py'
+PRG_VERSION = '0.1.50.min'
+SENSOR_ID_x = 'ts'
+T_DEEPSLEEP_MS_x = 10000
+ON_BATTERY = False
+# battery
+UBAT_100 = 3.0
+UBAT_0 = 2.6
 #----------------------------------------------------
 PARAM_UART_ADDR_x = '84cca85f4a82'
 PARAM_UART_ADDR_TYPE_x = '0'
 PARAM_UART_RX_HANDLE_x = '24'
 PARAM_UART_NAME_x = 'jmb_central_01'
 #====================================================
+from utime import sleep_ms, ticks_ms
+start_time = ticks_ms()
 
 from machine import Pin, freq, TouchPad
 from esp32 import wake_on_touch
@@ -93,7 +101,7 @@ TOUCH_WAKE = TouchPad(Pin(TOUCH_WAKE_PIN, mode = Pin.IN))
 TOUCH_WAKE.config(500)
 wake_on_touch(True)
 
-from utime import sleep_ms
+from utime import sleep_ms, ticks_ms
 from bluetooth import BLE
 from machine import ADC, reset, SoftI2C, deepsleep
 from ubinascii import unhexlify
@@ -125,9 +133,6 @@ R2 = 33000 # second divider bridge resistor
 ADC1_PIN = const(35) # Measure of analog voltage (ex: battery voltage following)
 DIV = R2 / (R1 + R2) # (R2 / R1 + R2) 
 AVERAGING = const(10)                # no. of samples for averaging
-# battery
-UBAT_100 = 3.0
-UBAT_0 = 2.6
 
 pot = ADC(Pin(ADC1_PIN))            
 pot.atten(ADC.ATTN_6DB ) # Umax = 2V
@@ -195,10 +200,15 @@ class BleJmbSensor:
         return unhexlify((v_ascii))
 
     # Connect to the specified device (otherwise use cached address from a scan).
-    def connect(self, scan_duration_ms=500): 
-        self._ble.gap_connect(self._addr_type, self._addr)
-        return True
-
+    def connect(self, scan_duration_ms=500):
+        try:
+            self._ble.gap_connect(self._addr_type, self._addr)
+            return True
+        except Exception as err:
+            log.counters('error', True) # increment error counter
+            log.log_error('Connect to central error')
+            print('=================================================')
+            deepsleep(T_DEEPSLEEP_MS)
     # Disconnect from current device.
     def disconnect(self):
         try:
@@ -223,17 +233,17 @@ class BleJmbSensor:
                 write_ok = True
             except Exception as err:
                 try:
-                    msg = 'Try to reconnect in write essai: ' + str(n_tries) + ' - n times:' + str(ret) + ' Error: ' + str(type(err)) + ' - "' + str(err) + '"'
-                    ret = log.log_error(msg)
-                    print(msg)
+                    msg = 'Try to reconnect in write essai: ' + str(n_tries)
+                    log.log_error(msg)
                     self.connect()
                     while not self._irq_peripheral_connect or not self._irq_service_done:
                         pass
                 except:
                     log.counters('error', True) # increment error counter
-                    msg = 'Connection not possible' 
+                    msg = 'Connection not possible'  + ' Error: ' + str(type(err)) + ' - "' + str(err) + '"'
                     ret = log.log_error(msg)
-                    print(msg + ' - n times:' + str(ret))
+                    msg += ' - n times:' + str(ret)
+                    print(msg)
                     print('=================================================')
                     deepsleep(T_DEEPSLEEP_MS)
                 n_tries += 1
@@ -249,8 +259,8 @@ class BleJmbSensor:
 def main():
     
     try:
-        t_deepsleep = T_DEEPSLEEP_MS
         print('=================================================')
+        print(PRG_NAME + ' - ' + PRG_VERSION)
         i = log.counters('passe', True)
 
         # instanciation of bme280, bmex80 - Pin assignment
@@ -289,10 +299,13 @@ def main():
         while not sensor._irq_peripheral_disconnect:
             pass
 
+        total_time = ticks_ms() - start_time
+        t_deepsleep = max(T_DEEPSLEEP_MS - total_time, 10)
+        
         # check the level of the battery
         if bat > (0.98 * UBAT_0) or not ON_BATTERY:
             # finishing tasks
-            print('passe', i, '- error count:', log.counters('error'))
+            print('passe', i, '- error count:', log.counters('error', False),'-->' , str(total_time) + 'ms')
             print('going to deepsleep for: ' + str(t_deepsleep) + ' ms')
             print('=================================================')
             deepsleep(t_deepsleep)
@@ -301,9 +314,9 @@ def main():
 #             deepsleep()
             exit()
         
-    except Exception as e:
+    except Exception as err:
         log.counters('error', True)
-        log.log_error('Main program error', e)
+        log.log_error('Main program error',   + ' Error: ' + str(type(err)) + ' - "' + str(err) + '"')
         deepsleep(t_deepsleep)
 
 if __name__ == "__main__":
