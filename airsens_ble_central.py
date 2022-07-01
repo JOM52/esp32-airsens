@@ -26,8 +26,10 @@ v0.1.12 : 07.03.2022 --> wifi account as constant
 v0.1.13 : 09.03.2022 --> integration of config_parser.py
 v0.1.14 : 25.05.2022 --> added if DEBUG_YN: for debug print's
 v0.1.15 : 22.06.2022 --> added error mangement in "connect_and_subscribe"
+v0.1.16 : 26.06.2022 --> adapté gestion ereur dans "_IRQ_GATTS_WRITE" dans "ble_irq"
+v0.1.17 : 26.06.2022 --> ajout de "if client is not None:" dans "_IRQ_GATTS_WRITE" dans "ble_irq"
 """
-VERSION = '0.1.15'
+VERSION = '0.1.16'
 PROGRAM_NAME = 'airsens_ble_central.py'
 DEBUG_YN = False
 
@@ -201,25 +203,26 @@ class BLE():
                     if rx_crc == calc_crc:
                         try:
                             client = self.connect_and_subscribe(BROKER_CLIENT_ID, BROKER_IP, TOPIC)
-                            if DEBUG_YN: print('-----> 5')
-                            client.publish(TOPIC, message)
-                            if DEBUG_YN: print('-----> 6')
-                            client.disconnect()
-                            print(str(passe) + ' - '
-                                  + datetime_formated + ' - '
-                                  + jmb_id + '-'
-                                  + piece
-                                  + ' --> temp: ' + str(temp)
-                                  + ' --> hum: ' + str(hum)
-                                  + ' --> pres: ' + str(pres)
-                                  + ' --> bat: ' + str(bat)
-                                  + ' --> crc: ' + str(calc_crc)
-                                  + ' --> errors: ' + str(log.counters('error')))
+                            if client is not None:
+                                if DEBUG_YN: print('-----> 5')
+                                client.publish(TOPIC, message)
+                                if DEBUG_YN: print('-----> 6')
+                                client.disconnect()
+                                print(str(passe) + ' - '
+                                      + datetime_formated + ' - '
+                                      + jmb_id + '-'
+                                      + piece
+                                      + ' --> temp: ' + str(temp)
+                                      + ' --> hum: ' + str(hum)
+                                      + ' --> pres: ' + str(pres)
+                                      + ' --> bat: ' + str(bat)
+                                      + ' --> crc: ' + str(calc_crc)
+                                      + ' --> errors: ' + str(log.counters('error')))
                         except Exception as err:
                             if DEBUG_YN: print('--> 07')        
                             log.counters('error', True)
-                            log.log_error('MQTT publish', err)
-                            print(err)
+                            log.log_error('MQTT publish ' + jmb_id + '-' + piece, err)
+#                             print(err)
                     else:
                         if DEBUG_YN: print('--> 08')        
                         log.counters('error', True)
@@ -240,6 +243,7 @@ class BLE():
         except Exception as err:
             log.counters('error', True)
             log.log_error('connect_and_subscribe', err)
+
 
     # Nordic UART Service (NUS)       
     def register(self):        

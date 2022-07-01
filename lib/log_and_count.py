@@ -20,6 +20,8 @@ v0.1.6 : 08.02.2022 --> correction of error introduced in v0.1.5
 v0.1.7 : 08.02.2022 --> no more file error.txt. All counter in are now in the file counter.txt
 v0.1.8 : 23.02.2022 --> addd file name and line number on error
 v0.1.9 : 22.06.2022 --> log_error modified for 'more_info'
+v0.1.10 : 27.06.2022 --> log_error modified presnetations of recorded data
+v0.1.11 : 27.06.2022 --> log_error modified for display cpl correctly
 """
 from sys import print_exception 
 
@@ -85,6 +87,7 @@ class LogAndCount:
                 cpl = more_info
             else:
                 cpl = str(more_info)
+            cpl = ' -> ' + cpl
                 
         if isinstance(err_info, list):  
             s = StringIO()
@@ -94,13 +97,13 @@ class LogAndCount:
             s3 = s2[1].lstrip()
             s4 = s2[2].lstrip()
             # write and print the error message
-            msg = (s3 + ' - ' + s4 + ' - ' + cpl)
+            msg = (s3 + ' - ' + s4 + cpl)
         elif isinstance(err_info, str):
-            msg = (err_info + ' - ' + cpl)
+            msg = (err_info + cpl)
         else:
-            msg = (str(err_info) + ' - ' + cpl)
+            msg = (str(err_info) + cpl)
             
-        msg = msg.replace(':', '->')
+        msg = msg.replace(':', '')
         print('log_and_count --> ' + msg)
         
         return self.counters(msg, True)
