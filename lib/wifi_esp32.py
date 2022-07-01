@@ -1,45 +1,49 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-project : airsens_ble.py
-----------------------------
-Class to connect on WLAN
 
-CLASS : WifiEsp32
-PROCESSOR : ESP32
-OS : micropython and loboris_micropython
-uC : WEMOS MINI D1
-VERSION : 1.0.0
-DATE : 12.06.2021
-jmb52.dev@gmail.com
+"""
+file: blink.py 
+
+author: jom52
+license : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+email: jom52.dev@gmail.com
+github: https://github.com/jom52/esp32-airsens
+
+blink internal led
+v0.1.0 : 12.06.2021 --> first prototype
+v0.1.1 : 01.07.2022 --> added "isconnected_wifi"
 """
 import network
 import utime
 
-class WifiEsp32:
+class WifiEsp32: 
     
     def __init__(self, ssid, pw):
         
         self.WIFI_SSID = ssid
         self.WIFI_PW = pw
+        self.station = None
         
     def connect_wifi(self):
         ssid = self.WIFI_SSID 
         password = self.WIFI_PW
-        station = network.WLAN(network.STA_IF)
-        station.active(True)
-        station.connect(ssid, password)
+        self.station = network.WLAN(network.STA_IF)
+        self.station.active(True)
+        self.station.connect(ssid, password)
 
         # check connection
         tmo = 100
-        while not station.isconnected():
+        while not self.isconnected_wifi():
            utime.sleep_ms(100)
            tmo -= 1
            if tmo == 0:
                print('wifi connection breaked')
                break
-        print('wifi connected on ' + self.WIFI_SSID + ' -> ' + str(station.isconnected()))
-        print('network config:', station.ifconfig())
+        print('wifi connected on ' + self.WIFI_SSID + ' -> ' + str(self.station.isconnected()))
+        print('network config:', self.station.ifconfig())
+        
+    def isconnected_wifi(self):
+        return self.station.isconnected()
         
     
 # demo prg for this class

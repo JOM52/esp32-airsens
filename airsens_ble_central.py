@@ -28,9 +28,11 @@ v0.1.14 : 25.05.2022 --> added if DEBUG_YN: for debug print's
 v0.1.15 : 22.06.2022 --> added error mangement in "connect_and_subscribe"
 v0.1.16 : 26.06.2022 --> adapté gestion ereur dans "_IRQ_GATTS_WRITE" dans "ble_irq"
 v0.1.17 : 26.06.2022 --> ajout de "if client is not None:" dans "_IRQ_GATTS_WRITE" dans "ble_irq"
+v0.1.18 : 01.07.2022 --> supprimé point de test dans tout le programme (if DEBUG_YN: print'xx')
+v0.1.19 : 01.07.2022 --> control of wifi connection status before connection to MQTT
 """
-VERSION = '0.1.16'
-PROGRAM_NAME = 'airsens_ble_central.py'
+VERSION = '0.1.19'
+PROGRAM_NAME = 'airsens_ble_central.py' 
 DEBUG_YN = False
 
 from machine import Pin, Timer, SoftI2C
@@ -120,7 +122,7 @@ _IRQ_GATTS_WRITE = const(3)
     
 
 class BLE():
-    def __init__(self, name):   
+    def __init__(self, name, my_wifi):   
         self.name = name
         self.ble = ubluetooth.BLE()
         self.ble.active(True)
@@ -139,6 +141,8 @@ class BLE():
         
         self.my_rtc = rtc_esp32.RtcEsp32()  # initialize the class
         self.my_rtc.rtc_init()  # initialize the rtc with local date and time
+        
+        self.my_wifi = my_wifi
 
 
     # the blue led stop blinking wenn disconnected
@@ -154,59 +158,54 @@ class BLE():
 
     # irq handler
     def ble_irq(self, event, data):
-        if DEBUG_YN: print('--> 00')        
         self.irq_list.append(event)
         if event == _IRQ_CENTRAL_CONNECT: #1
             try:
                 '''Central connected'''
                 self.disconnected()
-                if DEBUG_YN: print('--> 01')        
                 self.led(1)
             except Exception as err:
-                if DEBUG_YN: print('--> 02')        
                 log.counters('error', True)
                 log.log_error('_IRQ_CENTRAL_CONNECT', err)
                 print(err)
         
         elif event == _IRQ_CENTRAL_DISCONNECT: #2
             try:
-                if DEBUG_YN: print('--> 03')        
                 '''Central disconnected'''
                 self.advertiser()
                 self.connected()
-                if DEBUG_YN: print('--> 04')        
+
     #             print(self.irq_list)
                 self.irq_list = []
             except Exception as err:
-                if DEBUG_YN: print('--> 05')        
+
                 log.counters('error', True)
                 log.log_error('_IRQ_CENTRAL_DISCONNECT', err)
                 print(err)
         
         elif event == _IRQ_GATTS_WRITE: #3
-            if DEBUG_YN: print('--> 06')        
+
             try:
                 '''New message received'''
-                if DEBUG_YN: print('-----> 0')
                 buffer = self.ble.gatts_read(self.rx)
-                if DEBUG_YN: print('-----> 1')
                 message = buffer.decode('UTF-8').strip()
-                if DEBUG_YN: print('-----> 2')
                 if message[:3] == 'jmb':
-                    if DEBUG_YN: print('-----> 3')
                     passe = log.counters('passe', True)
                     now = self.my_rtc.rtc_now()  # get date and time
                     datetime_formated = self.my_rtc.format_datetime(now)
                     jmb_id, piece, temp, hum, pres, bat, rx_crc = encode_decode.decode_msg(message)
                     calc_crc = encode_decode.get_crc(message[:17])
-                    if DEBUG_YN: print('-----> 4')
                     if rx_crc == calc_crc:
+                        n_essais = 0
+                        while not self.my_wifi.isconnected_wifi():
+                            sleep_ms(200)
+                            n_essais += 1
+                        if n_essais > 0:
+                            log.log_error('wait on wifi connection: ' + str(n_essais))
                         try:
                             client = self.connect_and_subscribe(BROKER_CLIENT_ID, BROKER_IP, TOPIC)
                             if client is not None:
-                                if DEBUG_YN: print('-----> 5')
                                 client.publish(TOPIC, message)
-                                if DEBUG_YN: print('-----> 6')
                                 client.disconnect()
                                 print(str(passe) + ' - '
                                       + datetime_formated + ' - '
@@ -219,22 +218,19 @@ class BLE():
                                       + ' --> crc: ' + str(calc_crc)
                                       + ' --> errors: ' + str(log.counters('error')))
                         except Exception as err:
-                            if DEBUG_YN: print('--> 07')        
                             log.counters('error', True)
                             log.log_error('MQTT publish ' + jmb_id + '-' + piece, err)
 #                             print(err)
                     else:
-                        if DEBUG_YN: print('--> 08')        
                         log.counters('error', True)
                         log.log_error('Transmission error: bad CRC')                    
                             
             except Exception as err:
-                if DEBUG_YN: print('--> 09')        
                 log.counters('error', True)
                 log.log_error('_IRQ_GATTS_WRITE', err)
-                if DEBUG_YN: print('err:', err)
        
     def connect_and_subscribe(self, broker_client_id, broker_ip, topic):
+
         try:
             client = umqttsimple.MQTTClient(broker_client_id, broker_ip)
             client.connect(True)
@@ -247,7 +243,6 @@ class BLE():
 
     # Nordic UART Service (NUS)       
     def register(self):        
-        if DEBUG_YN: print('--> 12')        
             
         BLE_NUS = ubluetooth.UUID(NUS_UUID)
         BLE_RX = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
@@ -256,14 +251,11 @@ class BLE():
         BLE_UART = (BLE_NUS, (BLE_TX, BLE_RX,))
         SERVICES = (BLE_UART, )
         ((self.tx, self.rx,), ) = self.ble.gatts_register_services(SERVICES)
-        if DEBUG_YN: print('--> 13')        
 
     
     def advertiser(self):
-        if DEBUG_YN: print('--> 14')        
         name = bytes(self.name, 'UTF-8')
         self.ble.gap_advertise(ADVERTISE_INTERVAL, bytearray('\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name)
-        if DEBUG_YN: print('--> 15')        
   
 def main():
     
@@ -287,7 +279,7 @@ def main():
         print('MQTT broker IP:' + BROKER_IP + ' topic: ' + TOPIC)
         print('-----------------------------------------------------------')
         blue_led = Pin(2, Pin.OUT)
-        ble = BLE(CENTRAL_NAME)
+        ble = BLE(CENTRAL_NAME, my_wifi)
     except Exception as err:
         log.counters('error', True)
         log.log_error('_IRQ_GATTS_WRITE', err)
