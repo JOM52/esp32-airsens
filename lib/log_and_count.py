@@ -122,3 +122,14 @@ class LogAndCount:
         except:
             err = None
         return err
+
+    def error_detail(self, err_info, more_info=''):
+        s=StringIO()
+        sys.print_exception(e, s)  
+        s=s.getvalue()
+        s=s.split('\n')                                                                   
+        line=s[1].split(',')
+        line=line[1];
+        error=s[2]
+        err=error+line;
+        print(err)

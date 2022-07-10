@@ -72,14 +72,15 @@ v0.1.47.min : 06.06.2022 --> modif to permit to "airsens_ble_scan.py" to modify 
 v0.1.48.min : 07.06.2022 --> improved error management and small cosmetic changes
 v1.0.49.min : 09.06.2022 --> small changes on error management
 v0.1.50.min : 11.06.2022 --> try to improve error management. Success ???
-v0.1.51.min : 11.06.2022 --> second step to improve error management. 
+v0.1.51.min : 11.06.2022 --> second step to improve error management.
+v0.1.52.min : 04.07.2022 --> corrected T_DEEPSLEEP_MS om error managment in "main"
 """
 
 # PARAMETERS ========================================
 PRG_NAME = 'airsens_ble_sensor_min.py'
 PRG_VERSION = '0.1.51.min'
-SENSOR_ID_x = 'ex'
-T_DEEPSLEEP_MS_x = 300000
+SENSOR_ID_x = 'p01'
+T_DEEPSLEEP_MS_x = 15000
 ON_BATTERY = False
 # battery
 UBAT_100 = 3.0
@@ -318,7 +319,7 @@ def main():
     except Exception as err:
         log.counters('error', True)
         log.log_error('Main program error', err)
-        deepsleep(t_deepsleep)
+        deepsleep(T_DEEPSLEEP_MS)
 
 if __name__ == "__main__":
     main()
