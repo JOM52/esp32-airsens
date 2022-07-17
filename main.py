@@ -1,2 +1,2 @@
-import airsens_ble_sensor as prg
+import airsens_ble_sensor_min as prg
 prg.main()

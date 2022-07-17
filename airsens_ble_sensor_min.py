@@ -78,13 +78,13 @@ v0.1.52.min : 04.07.2022 --> corrected T_DEEPSLEEP_MS om error managment in "mai
 
 # PARAMETERS ========================================
 PRG_NAME = 'airsens_ble_sensor_min.py'
-PRG_VERSION = '0.1.51.min'
-SENSOR_ID_x = 'p01'
-T_DEEPSLEEP_MS_x = 15000
-ON_BATTERY = False
+PRG_VERSION = '0.1.52.min'
+SENSOR_ID_x = '3c'
+T_DEEPSLEEP_MS_x = 60000
+ON_BATTERY = True
 # battery
-UBAT_100 = 3.0
-UBAT_0 = 2.6
+UBAT_100 = 4.5
+UBAT_0 = 3.0
 #----------------------------------------------------
 PARAM_UART_ADDR_x = '84cca85f4a82'
 PARAM_UART_ADDR_TYPE_x = '0'
