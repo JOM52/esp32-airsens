@@ -1,10 +1,12 @@
-# Projet : esp32-airsens-tld 
+# Projet : esp32-airsens 
 
 Version 06_tld
 
-***airsens*** est un projet de développement de capteurs ainsi que des application nécessaires pour les mettre en œuvre dans un environnement domotique. Le réseau sera constitué de capteurs qui transmettent les données à une centrale. Les capteur font l'objet d'un développement spécifique hardware et software autour du processeur ESP32 et à l'aide de Micropython et un système Liligo TTGO est utilisé tel quel pour la centrale . La centrale réceptionne les messages des capteurs, les transmet au broker MQTT, et se charge de l'affichage des mesures ainsi que de l'état de charge des batteries.
+***esp32-airsens*** est un projet de développement de capteurs ainsi que des application nécessaires pour les mettre en œuvre dans un environnement domotique. Le réseau sera constitué de capteurs qui transmettent les données à une centrale. Les capteur font l'objet d'un développement spécifique hardware et software autour du processeur ESP32 et à l'aide de Micropython et un système Liligo TTGO est utilisé tel quel pour la centrale . La centrale réceptionne les messages des capteurs, les transmet au broker MQTT, et se charge de l'affichage des mesures ainsi que de l'état de charge des batteries.
 
-La version 06_tld est une version pour test longue durée avant la réalisation d'un circuit imprimé et d'un boitier dédicacé. (***06***: 6ème version du hard et ***tld*** pour **<u>t</u>**est **<u>l</u>**ongue **<u>d</u>**urée)
+La version hard 06_tld est une version pour test longue durée avant la réalisation d'un circuit imprimé et d'un boitier dédicacé. (***06***: 6ème version du hard et ***tld*** pour **<u>t</u>**est **<u>l</u>**ongue **<u>d</u>**urée)
+
+La version soft est 1.0.0 première version de production. 
 
 ## Schéma de principe
 https://github.com/JOM52/esp32-airsens-tld/blob/main/doc/Sch%C3%A9ma%20de%20principe.jpg
